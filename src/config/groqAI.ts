@@ -5,7 +5,7 @@ import { ModelOutputError } from "../lib/errors";
 import { scheduleProviderRequest, tagProviderError } from "../lib/providerRateLimit";
 import { beforeProviderCall } from "../lib/providerCalls";
 
-// create groq client
+/** Groq client configured with the OpenAI-compatible API. */
 export const client = new OpenAI({
     apiKey: process.env.GROQ_API_KEY,
     baseURL: "https://api.groq.com/openai/v1",
@@ -13,10 +13,15 @@ export const client = new OpenAI({
     maxRetries: 0,
 });
 
-// Check if LLM provides the response that is in the requested/required schema
-// @param content : the string data from LLM 
-// @param schema : the schema we want LLM to output
-// @return safe-parsed data 
+/**
+ * Parses model JSON and validates it against the requested schema.
+ *
+ * @template T - The validated output type.
+ * @param content - The raw JSON text returned by the model.
+ * @param schema - The schema the model output must satisfy.
+ * @returns The parsed and validated data.
+ * @throws {ModelOutputError} If the JSON is invalid or fails schema validation.
+ */
 const parseModelOutput = <T>(content: string, schema: z.ZodType<T>): T => {
     let value: unknown;
     try {
@@ -42,10 +47,14 @@ const parseModelOutput = <T>(content: string, schema: z.ZodType<T>): T => {
     return result.data;
 }
 
-// Check the error of LLM output 
-// @param error : the error type 
-// @param schema : the schema we want LLM to output
-// @return return the ModelOutputError
+/**
+ * Converts a provider validation failure into a model output error.
+ *
+ * @template T - The expected output type.
+ * @param error - The validation error returned by the provider.
+ * @param schema - The schema the model output must satisfy.
+ * @returns A model output error with validation details and provider status.
+ */
 const providerValidationError = <T>(
     error: unknown,
     schema: z.ZodType<T>,
@@ -68,8 +77,10 @@ const providerValidationError = <T>(
             }
         }
     }
-    // Some providers supply only a textual missing-property diagnostic. Match only
-    // known top-level schema fields rather than copying an arbitrary provider message.
+    /**
+     * Some providers supply only a textual missing-property diagnostic. Match only
+     * known top-level schema fields rather than copying an arbitrary provider message.
+     */
     const required =
         (z.toJSONSchema(schema) as { required?: string[] }).required ?? [];
     const missing =
@@ -85,8 +96,15 @@ const providerValidationError = <T>(
     );
 }
 
-// Request the LLM call
-// @props : the props required to send a structured request to LLM 
+/**
+ * Requests structured model output and retries correctable validation failures.
+ *
+ * @template T - The validated response type.
+ * @param props - The instructions, input, schema, and completion token limit.
+ * @returns The model response validated against the requested schema.
+ * @throws {ModelOutputError} If the model cannot produce valid output.
+ * @throws Propagates provider errors that are not schema validation failures.
+ */
 export const groqChatStructured = async <T>(
     props: GroqChatRequest<T>
 ): Promise<T> => {

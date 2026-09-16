@@ -1,14 +1,34 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { Provider } from "../types";
 
+/**
+ * Reads the HTTP status from a provider error.
+ *
+ * @param error - The provider error to inspect.
+ * @returns The available HTTP status, or undefined.
+ */
 export const providerStatus = (error: any): number | undefined => {
     return error?.status ?? error?.statusCode ?? error?.response?.status;
 }
 
+/**
+ * Reads a header from a Headers-like object or a plain object.
+ *
+ * @param headers - The response headers to inspect.
+ * @param name - The header name to retrieve.
+ * @returns The header value, or undefined.
+ */
 const header = (headers: any, name: string): string | undefined => {
     return headers?.get?.(name) ?? headers?.[name];
 }
 
+/**
+ * Calculates a retry delay from provider headers, with a one-second buffer.
+ *
+ * @param error - The provider error containing response headers.
+ * @param now - The current time in milliseconds since the Unix epoch.
+ * @returns The delay in milliseconds, defaulting to 60000 for missing or invalid headers.
+ */
 export const retryDelay = (error: any, now = Date.now()): number => {
     const headers = error?.headers ?? error?.response?.headers;
     const retry = header(headers, "retry-after");
@@ -34,6 +54,13 @@ export const retryDelay = (error: any, now = Date.now()): number => {
     return 60000;
 };
 
+/**
+ * Adds provider, status, and rate-limit retry details to an error object.
+ *
+ * @param error - The error to annotate when it is an object.
+ * @param provider - The provider that produced the error.
+ * @returns The original error value.
+ */
 export const tagProviderError = (error: any, provider: Provider) => {
     if (error && typeof error === "object") {
         error.provider = provider;
@@ -43,11 +70,32 @@ export const tagProviderError = (error: any, provider: Provider) => {
     return error;
 };
 
+/**
+ * Coordinates token capacity and cooldowns for provider requests.
+ */
 export interface ProviderGate {
+    /**
+     * Attempts to reserve token capacity for a request.
+     *
+     * @param tokens - The estimated token cost of the request.
+     * @returns A positive delay in milliseconds when the caller must wait, or a nonpositive value when ready.
+     */
     acquire(tokens: number): Promise<number>;
+    /**
+     * Applies a cooldown after a rate-limit response.
+     *
+     * @param milliseconds - The cooldown duration in milliseconds.
+     * @returns Resolves when the cooldown has been registered.
+     */
     cooldown(milliseconds: number): Promise<void>;
 }
 
+/**
+ * Waits for the requested duration in chunks of at most 30 seconds.
+ *
+ * @param milliseconds - The total duration to wait in milliseconds.
+ * @returns Resolves after the wait completes.
+ */
 export const abortableWait = async (
     milliseconds: number,
 ) => {
@@ -58,12 +106,31 @@ export const abortableWait = async (
     }
 };
 
+/**
+ * Schedules requests through a token gate and retries rate-limit failures.
+ */
 export class ProviderScheduler {
+    /**
+     * Creates a provider request scheduler.
+     *
+     * @param gate - The token capacity and cooldown coordinator.
+     * @param wait - The asynchronous delay function used between attempts.
+     */
     constructor(
         private gate: ProviderGate,
         private wait = abortableWait,
     ) { }
 
+    /**
+     * Waits for capacity and executes a request with up to two rate-limit retries.
+     *
+     * @template T - The request result type.
+     * @param provider - The provider receiving the request.
+     * @param tokens - The estimated token cost.
+     * @param request - The operation to execute after capacity is available.
+     * @returns The successful request result.
+     * @throws The provider error when it is not retryable or retries are exhausted.
+     */
     async run<T>(
         provider: Provider,
         tokens: number,
@@ -99,6 +166,12 @@ export class ProviderScheduler {
 }
 const schedulers = new Map<Provider, ProviderScheduler>();
 
+/**
+ * Registers or removes a scheduler for a provider.
+ *
+ * @param provider - The provider to configure.
+ * @param scheduler - The scheduler to register; omit it to remove the current scheduler.
+ */
 export const configureProviderScheduler = (
     provider: Provider,
     scheduler?: ProviderScheduler,
@@ -107,6 +180,16 @@ export const configureProviderScheduler = (
     else schedulers.delete(provider);
 };
 
+/**
+ * Executes a provider request using its configured scheduler, if present.
+ *
+ * @template T - The request result type.
+ * @param provider - The provider receiving the request.
+ * @param tokens - The estimated token cost.
+ * @param request - The asynchronous provider operation.
+ * @returns The successful request result.
+ * @throws The error annotated with provider details if the request fails.
+ */
 export const scheduleProviderRequest = async <T>(
     provider: Provider,
     tokens: number,
@@ -122,6 +205,14 @@ export const scheduleProviderRequest = async <T>(
     }
 };
 
+/**
+ * Calculates exponential backoff while honoring the provider retry delay.
+ *
+ * @param attempts - The number of attempts used to calculate backoff.
+ * @param _type - An unused backoff type supplied by the caller.
+ * @param error - The error that may contain a provider retry delay.
+ * @returns The backoff duration in milliseconds, with a minimum of 30000.
+ */
 export const providerBackoff = (
     attempts: number,
     _type: string | undefined,
