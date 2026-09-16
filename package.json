@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "format": "npx prettier . --write", 
+    "format": "npx prettier . --write",
     "dev": "tsx watch server.ts"
   },
   "keywords": [],
@@ -13,14 +13,20 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@supabase/server": "^1.6.1",
+    "@supabase/ssr": "^0.12.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
+    "groq-sdk": "^1.6.0",
+    "openai": "^7.15.0",
     "tsx": "^4.23.13",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
+    "drizzle-kit": "^0.31.10",
     "prettier": "3.9.7"
   }
 }
