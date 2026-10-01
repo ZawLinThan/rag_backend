@@ -9,7 +9,7 @@ import {z} from "zod";
  * @property schema - The schema used to constrain and validate the response.
  * @property completionTokens - The completion token limit, currently fixed at 2500.
  */
-export type GroqChatRequest<T> = {
+export type ChatRequest<T> = {
     instruction: string, 
     input: unknown,
     schema: z.ZodType<T>,
@@ -19,4 +19,4 @@ export type GroqChatRequest<T> = {
 /**
  * Supported AI provider identifiers.
  */
-export type Provider = "groq"; // add here if more AI's are added
+export type Provider = "groq" | "openrouter"; // add here if more AI's are added

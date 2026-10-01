@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { GroqChatRequest } from "../types";
+import { ChatRequest } from "../types";
 import { z } from "zod";
 import { ModelOutputError } from "../lib/errors";
 import { scheduleProviderRequest, tagProviderError } from "../lib/providerRateLimit";
@@ -105,8 +105,8 @@ const providerValidationError = <T>(
  * @throws {ModelOutputError} If the model cannot produce valid output.
  * @throws Propagates provider errors that are not schema validation failures.
  */
-export const groqChatStructured = async <T>(
-    props: GroqChatRequest<T>
+export const ChatStructured = async <T>(
+    props: ChatRequest<T>
 ): Promise<T> => {
 
     const jsonSchema = z.toJSONSchema(props.schema);

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "format": "npx prettier . --write",
     "dev": "tsx watch server.ts"
   },
@@ -13,6 +13,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@openrouter/sdk": "^1.4.10",
     "@supabase/server": "^1.6.1",
     "@supabase/ssr": "^0.12.7",
     "cors": "^2.8.6",
@@ -26,7 +27,13 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^26.6.3",
     "drizzle-kit": "^0.31.10",
-    "prettier": "3.9.7"
+    "jest": "^30.5.2",
+    "prettier": "3.9.7",
+    "ts-jest": "^29.4.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
   }
 }
