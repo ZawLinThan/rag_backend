@@ -20,3 +20,20 @@ export type ChatRequest<T> = {
  * Supported AI provider identifiers.
  */
 export type Provider = "groq" | "openrouter"; // add here if more AI's are added
+
+/**
+ * Response type for a successful presigned URL generation.
+ */
+export type SuccessfulPresignedUrlResponse = {
+    uploadUrl: string;
+    key: string;
+    publicUrl: string;
+    expiresIn: number;
+};
+
+/**
+ * Response type for a failed response
+ */
+export type Error = {
+    error: string;
+};

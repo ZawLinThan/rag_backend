@@ -16,6 +16,7 @@
     "@openrouter/sdk": "^1.4.10",
     "@supabase/server": "^1.6.1",
     "@supabase/ssr": "^0.12.7",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
@@ -26,6 +27,8 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.3",
