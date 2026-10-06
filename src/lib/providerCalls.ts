@@ -8,5 +8,5 @@ const calls = new AsyncLocalStorage<() => Promise<void>>();
  * @returns Resolves after the hook completes, or immediately if none is registered.
  */
 export const beforeProviderCall = async () => {
-    await calls.getStore()?.();
+  await calls.getStore()?.();
 };

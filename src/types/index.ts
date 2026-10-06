@@ -1,4 +1,4 @@
-import {z} from "zod"; 
+import { z } from "zod";
 
 /**
  * Options for a structured Groq model request.
@@ -10,11 +10,11 @@ import {z} from "zod";
  * @property completionTokens - The completion token limit, currently fixed at 2500.
  */
 export type ChatRequest<T> = {
-    instruction: string, 
-    input: unknown,
-    schema: z.ZodType<T>,
-    completionTokens: 2500, 
-}
+  instruction: string;
+  input: unknown;
+  schema: z.ZodType<T>;
+  completionTokens: 2500;
+};
 
 /**
  * Supported AI provider identifiers.
@@ -25,15 +25,15 @@ export type Provider = "groq" | "openrouter"; // add here if more AI's are added
  * Response type for a successful presigned URL generation.
  */
 export type SuccessfulPresignedUrlResponse = {
-    uploadUrl: string;
-    key: string;
-    publicUrl: string;
-    expiresIn: number;
+  uploadUrl: string;
+  key: string;
+  publicUrl: string;
+  expiresIn: number;
 };
 
 /**
  * Response type for a failed response
  */
 export type Error = {
-    error: string;
+  error: string;
 };

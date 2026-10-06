@@ -10,7 +10,8 @@ async function main() {
   const result = await chatStructured({
     instruction: "Answer the question clearly and briefly.",
     input: {
-      question: "How many r's are in 'strawberry'? Return the number as a string.",
+      question:
+        "How many r's are in 'strawberry'? Return the number as a string.",
     },
     schema: AnswerSchema,
     completionTokens: 2500,

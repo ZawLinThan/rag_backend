@@ -7,12 +7,14 @@ import type { Request, Response, NextFunction } from "express";
  * Verify the token using Supabase's auth API
  * Attach the @link User object to the req for downstream handlers to use. // see express.d.ts for the type definition of the User object
  * Error format: { error: "Your error message here" }
- * 
+ *
  * @param req - Express Request object
  * @param res - Express Response object
  * @param next - Express NextFunction callback
  * @returns void
  */
-export const protectRoute = (req : Request, res: Response, next: NextFunction) => {
-
-}
+export const protectRoute = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {};

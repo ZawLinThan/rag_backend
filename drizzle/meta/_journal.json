@@ -15,6 +15,13 @@
       "when": 1791072548218,
       "tag": "0001_motionless_green_goblin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791255985182,
+      "tag": "0002_free_elektra",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,14 @@
 import { Router } from "express";
 import { protectRoute } from "../middleware/protectRoute";
-import { getAllFlashCardsSets, generateFlashcards, getFlashcardsBySetId, addFlashcardToSet, updateSingleFlashcard, deleteSingleFlashcard, deleteFlashcardSet } from "../controllers/flashcards.controller";
+import {
+  getAllFlashCardsSets,
+  generateFlashcards,
+  getFlashcardsBySetId,
+  addFlashcardToSet,
+  updateSingleFlashcard,
+  deleteSingleFlashcard,
+  deleteFlashcardSet,
+} from "../controllers/flashcards.controller";
 
 const router = Router();
 
@@ -16,4 +24,4 @@ router.get("/health", (_req, res) => {
   res.status(200).json({ message: "Flashcards route is healthy" });
 });
 
-export default router; 
+export default router;

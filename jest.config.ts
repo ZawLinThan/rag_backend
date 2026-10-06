@@ -3,15 +3,23 @@
  * https://jestjs.io/docs/configuration
  */
 
-import type {Config} from 'jest';
+import type { Config } from "jest";
 
 const config: Config = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
+  preset: "ts-jest",
+  testEnvironment: "node",
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: { esModuleInterop: true, target: 'ES2022', module: 'commonjs', isolatedModules: true },
-    }],
+    "^.+\\.tsx?$": [
+      "ts-jest",
+      {
+        tsconfig: {
+          esModuleInterop: true,
+          target: "ES2022",
+          module: "commonjs",
+          isolatedModules: true,
+        },
+      },
+    ],
   },
   // All imported modules in your tests should be mocked automatically
   // automock: false,
