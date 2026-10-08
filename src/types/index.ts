@@ -22,14 +22,17 @@ export type ChatRequest<T> = {
 export type Provider = "groq" | "openrouter"; // add here if more AI's are added
 
 export type GetPresignedUrlReq = {
-  fileName: string, 
-  contentType: string, 
-  size: number, 
-}
+  fileName: string;
+  contentType: string;
+  size: number;
+};
 
 export type ConfirmFileUploadReq = {
-  name: string,
-  originalName: string, 
-  r2Key: string, 
-  fileType: string, fileSize: number, courseId:string, notebookId:string
-}
+  name: string;
+  originalName: string;
+  r2Key: string;
+  fileType: string;
+  fileSize: number;
+  courseId: string;
+  notebookId: string;
+};

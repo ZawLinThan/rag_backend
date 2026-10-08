@@ -28,7 +28,9 @@ export const protectRoute = async (
   try {
     const { data, error } = await supabase.auth.getUser(match[1]);
     if (error || !data.user) {
-      res.status(401).json({ error: "Invalid or expired session. Please sign in again." });
+      res
+        .status(401)
+        .json({ error: "Invalid or expired session. Please sign in again." });
       return;
     }
 

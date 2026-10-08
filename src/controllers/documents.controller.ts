@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import type { ConfirmFileUploadReq, GetPresignedUrlReq } from "../types/index";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import {s3} from '../config/r2'
+import { s3 } from "../config/r2";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 /**
  * @description Controller function to generate a presigned URL for uploading a file to S3.
@@ -14,23 +14,23 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
  */
 export const getPresignedUrl = async (req: Request, res: Response) => {
   try {
-    const id = req.user?.id;  
+    const id = req.user?.id;
 
     if (!id) {
-      return res.status(401).json({error: "Unauthorized"}); 
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const {fileName, contentType, size} = req.body as GetPresignedUrlReq; 
+    const { fileName, contentType, size } = req.body as GetPresignedUrlReq;
 
-    const MAX_SIZE = 20 * 1024 * 1024 // 20MB
+    const MAX_SIZE = 20 * 1024 * 1024; // 20MB
     if (size > MAX_SIZE) {
-      return res.status(400).json({ error: "File too large"}); 
+      return res.status(400).json({ error: "File too large" });
     }
 
-    // check the allowed type 
+    // check the allowed type
     const key = `${id}/${Date.now()}-${fileName.replace(/\s/g, "-")}`;
-    
-    console.log("about to send req to r2")
+
+    console.log("about to send req to r2");
     const uploadUrl = await getSignedUrl(
       s3,
       new PutObjectCommand({
@@ -39,14 +39,14 @@ export const getPresignedUrl = async (req: Request, res: Response) => {
         ContentType: contentType,
       }),
       { expiresIn: 3600 },
-    )
+    );
     console.log("Got Presigned");
     res.status(200).json({
-      uploadUrl, 
-      key, 
-      publicUrl: `${process.env.R2_PUBLIC_URL}/${key}`, 
-      expiresIn: 3600
-    })
+      uploadUrl,
+      key,
+      publicUrl: `${process.env.R2_PUBLIC_URL}/${key}`,
+      expiresIn: 3600,
+    });
   } catch (error) {
     console.error("Error generating presigned URL:", error);
     res.status(500).json({ error: "Failed to generate upload URL" });
@@ -65,7 +65,15 @@ export const getPresignedUrl = async (req: Request, res: Response) => {
  * @returns void
  */
 export const ingestPipeline = async (req: Request, res: Response) => {
-  const {name, originalName, r2Key, fileType, fileSize, courseId, notebookId} = req.body as ConfirmFileUploadReq; 
+  const {
+    name,
+    originalName,
+    r2Key,
+    fileType,
+    fileSize,
+    courseId,
+    notebookId,
+  } = req.body as ConfirmFileUploadReq;
   // don't touch it now.
 };
 

@@ -35,17 +35,16 @@ export const courses = pgTable(
   }),
 );
 
-export const notebooks = pgTable(
-    "notebooks", 
-    {
-        id: uuid("id").primaryKey().defaultRandom(), 
-        userId: uuid("user_id").notNull(), 
-        noteBookName: varchar("name", {length: 255}).notNull(), 
-        courseId: uuid("courseId").references(() => courses.id, {onDelete: "cascade"})
-        // fk: userId -> auth.users(id)
-        // fk: courseId -> courses(id)
-    }
-)
+export const notebooks = pgTable("notebooks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  noteBookName: varchar("name", { length: 255 }).notNull(),
+  courseId: uuid("courseId").references(() => courses.id, {
+    onDelete: "cascade",
+  }),
+  // fk: userId -> auth.users(id)
+  // fk: courseId -> courses(id)
+});
 
 type DocumentStatus = "pending" | "processing" | "ready" | "failed";
 export const documents = pgTable(
@@ -63,7 +62,9 @@ export const documents = pgTable(
     courseId: uuid("course_id").references(() => courses.id, {
       onDelete: "set null",
     }), // think about cascade
-    notebookId: uuid("notebook_id").references(() => notebooks.id, {onDelete: "set null"}), // think about cascade
+    notebookId: uuid("notebook_id").references(() => notebooks.id, {
+      onDelete: "set null",
+    }), // think about cascade
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     // fk: userId -> auth.users(id), handled by supabase
@@ -221,21 +222,23 @@ export const flashcards = pgTable(
 );
 
 export const tests = pgTable("tests", {
-    id: uuid("id").primaryKey().defaultRandom(), 
-    userId: uuid("user_id").notNull(), 
-    title: varchar("title", {length: 100}), 
-    referenceFileId: uuid("ref_file_id").references(() => documents.id, {onDelete: "restrict"}), // the sample test file user uploaded 
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-    // fk: userId -> auth.users(id)
-    // referenceFileId -> documentts(id) 
-})
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  title: varchar("title", { length: 100 }),
+  referenceFileId: uuid("ref_file_id").references(() => documents.id, {
+    onDelete: "restrict",
+  }), // the sample test file user uploaded
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  // fk: userId -> auth.users(id)
+  // referenceFileId -> documentts(id)
+});
 
 export type Profile = typeof profiles.$inferSelect;
 export type NewProfile = typeof profiles.$inferInsert;
 
-export type Course = typeof courses.$inferSelect; 
-export type NewCourse = typeof courses.$inferInsert; 
+export type Course = typeof courses.$inferSelect;
+export type NewCourse = typeof courses.$inferInsert;
 
 export type Document = typeof documents.$inferSelect;
 export type NewDocument = typeof documents.$inferInsert;
@@ -258,8 +261,8 @@ export type NewFlashcardSet = typeof flashcardSets.$inferInsert;
 export type Flashcard = typeof flashcards.$inferSelect;
 export type NewFlashcard = typeof flashcards.$inferInsert;
 
-export type Test = typeof tests.$inferSelect; 
-export type NewTest = typeof tests.$inferInsert; 
+export type Test = typeof tests.$inferSelect;
+export type NewTest = typeof tests.$inferInsert;
 
-export type NoteBook = typeof notebooks.$inferSelect; 
-export type NewNoteBook = typeof notebooks.$inferInsert; 
+export type NoteBook = typeof notebooks.$inferSelect;
+export type NewNoteBook = typeof notebooks.$inferInsert;
