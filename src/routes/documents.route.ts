@@ -12,7 +12,7 @@ import {
 const router = Router();
 
 router.post("/presign", protectRoute, getPresignedUrl);
-router.post("/:id/confirm", protectRoute, ingestPipeline);
+router.post("/confirm", protectRoute, ingestPipeline);
 router.get("/", protectRoute, getAllDocuments);
 router.get("/:id", protectRoute, getSingleDocument);
 router.delete("/:id", protectRoute, deleteDocument);

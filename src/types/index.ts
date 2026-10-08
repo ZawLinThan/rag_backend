@@ -21,19 +21,15 @@ export type ChatRequest<T> = {
  */
 export type Provider = "groq" | "openrouter"; // add here if more AI's are added
 
-/**
- * Response type for a successful presigned URL generation.
- */
-export type SuccessfulPresignedUrlResponse = {
-  uploadUrl: string;
-  key: string;
-  publicUrl: string;
-  expiresIn: number;
-};
+export type GetPresignedUrlReq = {
+  fileName: string, 
+  contentType: string, 
+  size: number, 
+}
 
-/**
- * Response type for a failed response
- */
-export type Error = {
-  error: string;
-};
+export type ConfirmFileUploadReq = {
+  name: string,
+  originalName: string, 
+  r2Key: string, 
+  fileType: string, fileSize: number, courseId:string, notebookId:string
+}

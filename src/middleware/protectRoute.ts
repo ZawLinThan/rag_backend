@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import { supabase } from "../config/supabase";
 
 /**
  * @description Middleware to protect routes by checking for a valid session.
@@ -13,8 +14,29 @@ import type { Request, Response, NextFunction } from "express";
  * @param next - Express NextFunction callback
  * @returns void
  */
-export const protectRoute = (
+export const protectRoute = async (
   req: Request,
   res: Response,
   next: NextFunction,
-) => {};
+) => {
+  const match = req.get("Authorization")?.match(/^Bearer\s+(\S+)$/i);
+  if (!match) {
+    res.status(401).json({ error: "Missing or malformed Bearer token" });
+    return;
+  }
+
+  try {
+    const { data, error } = await supabase.auth.getUser(match[1]);
+    if (error || !data.user) {
+      res.status(401).json({ error: "Invalid or expired session. Please sign in again." });
+      return;
+    }
+
+    req.user = data.user;
+  } catch {
+    res.status(503).json({ error: "Authentication service unavailable" });
+    return;
+  }
+
+  next();
+};
