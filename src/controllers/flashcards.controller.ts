@@ -1,72 +1,129 @@
 import type { Request, Response } from "express";
 
 /**
- * @description Controller function to retrieve all flashcard sets for the user from the database.
- * EndPoint: GET /flashcards/
- *
- * @param req - Express Request object
- * @param res - Express Response object
- * @returns Promise<void>
+ * GET /api/flashcards
+ * List sets belonging to req.user.id.
+ * No request body.
+ * Respond with 200 FlashcardSet[]; serialize timestamps as ISO strings without an envelope.
+ * Return { error: string } for 400 validation, 401 authentication, 404 ownership/missing,
+ * 409 conflicts, or 500 unexpected failures as applicable.
+ * @param req - Authenticated Express request; use req.user.id for ownership.
+ * @param res - Express response carrying the documented JSON payload/status.
+ * @returns Resolves after sending the response once implemented.
  */
-export const getAllFlashCardsSets = async (req: Request, res: Response) => {};
+export const getAllFlashCardsSets = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {};
 
 /**
- * @description Controller function to generate flashcards for the user.
- * Save the generated flashcards to the database and return the set ID.
- * EndPoint: POST /flashcards/generate
- *
- * @param req - Express Request object
- * @param res - Express Response object
- * @returns Promise<void>
+ * POST /api/flashcards
+ * Create an empty manual set; verify ownership of an optional course.
+ * CreateSetInput: { title, courseId }.
+ * Respond with 201 FlashcardSet; serialize timestamps as ISO strings without an envelope.
+ * Return { error: string } for 400 validation, 401 authentication, 404 ownership/missing,
+ * 409 conflicts, or 500 unexpected failures as applicable.
+ * @param req - Authenticated Express request; use req.user.id for ownership.
+ * @param res - Express response carrying the documented JSON payload/status.
+ * @returns Resolves after sending the response once implemented.
  */
-export const generateFlashcards = async (req: Request, res: Response) => {};
+export const createFlashcardSet = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {};
 
 /**
- * @description Controller function to retrieve flashcards from the specified set.
- * EndPoint: GET /flashcards/:setId
- *
- * @param req - Express Request object containing the set ID in req.params.setId
- * @param res - Express Response object
- * @returns Promise<void>
+ * POST /api/flashcards/generate
+ * Validate an owned ready document in the course and count 1–20; generate and persist a set and its cards.
+ * GenerateFlashcardsInput: { title, courseId, documentId, count }.
+ * Respond with 201 FlashcardSet (fetch cards separately); serialize timestamps as ISO strings without an envelope.
+ * Return { error: string } for 400 validation, 401 authentication, 404 ownership/missing,
+ * 409 conflicts, or 500 unexpected failures as applicable.
+ * @param req - Authenticated Express request; use req.user.id for ownership.
+ * @param res - Express response carrying the documented JSON payload/status.
+ * @returns Resolves after sending the response once implemented.
  */
-export const getFlashcardsBySetId = async (req: Request, res: Response) => {};
+export const generateFlashcards = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {};
 
 /**
- * @description Controller function to add a flashcard to the specified set.
- * EndPoint: POST /flashcards/:setId/cards
- *
- * @param req - Express Request object containing the set ID in req.params.setId
- * @param res - Express Response object
- * @returns Promise<void>
+ * GET /api/flashcards/:setId
+ * Verify set ownership and list its cards.
+ * req.params.setId.
+ * Respond with 200 Flashcard[]; serialize timestamps as ISO strings without an envelope.
+ * Return { error: string } for 400 validation, 401 authentication, 404 ownership/missing,
+ * 409 conflicts, or 500 unexpected failures as applicable.
+ * @param req - Authenticated Express request; use req.user.id for ownership.
+ * @param res - Express response carrying the documented JSON payload/status.
+ * @returns Resolves after sending the response once implemented.
  */
-export const addFlashcardToSet = async (req: Request, res: Response) => {};
+export const getFlashcardsBySetId = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {};
 
 /**
- * @description Controller function to update a single flashcard in the specified set.
- * EndPoint: PATCH /flashcards/:setId/cards/:cardId
- *
- * @param req - Express Request object containing the set and card IDs in req.params
- * @param res - Express Response object
- * @returns Promise<void>
+ * POST /api/flashcards/:setId/cards
+ * Verify set ownership; validate front/back and insert a card with scheduling defaults.
+ * req.params.setId; CardInput: { front, back }.
+ * Respond with 201 Flashcard; serialize timestamps as ISO strings without an envelope.
+ * Return { error: string } for 400 validation, 401 authentication, 404 ownership/missing,
+ * 409 conflicts, or 500 unexpected failures as applicable.
+ * @param req - Authenticated Express request; use req.user.id for ownership.
+ * @param res - Express response carrying the documented JSON payload/status.
+ * @returns Resolves after sending the response once implemented.
  */
-export const updateSingleFlashcard = async (req: Request, res: Response) => {};
+export const addFlashcardToSet = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {};
 
 /**
- * @description Controller function to delete a single flashcard from the specified set.
- * EndPoint: DELETE /flashcards/:setId/cards/:cardId
- *
- * @param req - Express Request object containing the set and card IDs in req.params
- * @param res - Express Response object
- * @returns Promise<void>
+ * PATCH /api/flashcards/:setId/cards/:cardId
+ * Verify ownership and membership; update front/back and updatedAt.
+ * req.params.setId/cardId; CardInput: { front, back }.
+ * Respond with 200 Flashcard; serialize timestamps as ISO strings without an envelope.
+ * Return { error: string } for 400 validation, 401 authentication, 404 ownership/missing,
+ * 409 conflicts, or 500 unexpected failures as applicable.
+ * @param req - Authenticated Express request; use req.user.id for ownership.
+ * @param res - Express response carrying the documented JSON payload/status.
+ * @returns Resolves after sending the response once implemented.
  */
-export const deleteSingleFlashcard = async (req: Request, res: Response) => {};
+export const updateSingleFlashcard = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {};
 
 /**
- * @description Controller function to delete the specified flashcard set.
- * EndPoint: DELETE /flashcards/:setId
- *
- * @param req - Express Request object containing the set ID in req.params.setId
- * @param res - Express Response object
- * @returns Promise<void>
+ * DELETE /api/flashcards/:setId/cards/:cardId
+ * Verify ownership and membership before deleting a card.
+ * req.params.setId/cardId.
+ * Respond with 204 without a body; serialize timestamps as ISO strings without an envelope.
+ * Return { error: string } for 400 validation, 401 authentication, 404 ownership/missing,
+ * 409 conflicts, or 500 unexpected failures as applicable.
+ * @param req - Authenticated Express request; use req.user.id for ownership.
+ * @param res - Express response carrying the documented JSON payload/status.
+ * @returns Resolves after sending the response once implemented.
  */
-export const deleteFlashcardSet = async (req: Request, res: Response) => {};
+export const deleteSingleFlashcard = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {};
+
+/**
+ * DELETE /api/flashcards/:setId
+ * Verify ownership; delete the set and cascade its cards.
+ * req.params.setId.
+ * Respond with 204 without a body; serialize timestamps as ISO strings without an envelope.
+ * Return { error: string } for 400 validation, 401 authentication, 404 ownership/missing,
+ * 409 conflicts, or 500 unexpected failures as applicable.
+ * @param req - Authenticated Express request; use req.user.id for ownership.
+ * @param res - Express response carrying the documented JSON payload/status.
+ * @returns Resolves after sending the response once implemented.
+ */
+export const deleteFlashcardSet = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {};

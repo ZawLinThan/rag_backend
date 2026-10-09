@@ -1,11 +1,11 @@
 import type { Request, Response } from "express";
-import type { ConfirmFileUploadReq, GetPresignedUrlReq } from "../types/index";
+import type { GetPresignedUrlReq } from "../types/index";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3 } from "../config/r2";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 /**
  * @description Controller function to generate a presigned URL for uploading a file to S3.
- * File size limit is 20MB. Presigned URL expires in 5 minutes.
+ * File size limit is 20MB. Presigned URL expires in 3600 seconds.
  * Acceptable file types are: .pdf, .docx, .txt (.jpg, .jpeg, .png, will be added in the future)
  *
  * @param req - The request object from Express
@@ -54,65 +54,81 @@ export const getPresignedUrl = async (req: Request, res: Response) => {
 };
 
 /**
- *
- * @description Controller function to handle the ingest pipeline for a document.
- * It receives a document ID from the request parameters and processes the document through the ingest pipeline.
- * The pipeline includes extracting text, chunking, embedding, and storing in a vector database.
- * EndPoint: POST /documents/confirm
- *
- * @param req - Express Request object
- * @param res - Express Response object
- * @returns void
+ * POST /api/documents/confirm
+ * Verify the uploaded R2 key belongs to the user and exists; validate notebook/course ownership, create metadata and queue ingestion (extract, chunk, embed).
+ * ConfirmFileUploadReq: { name, originalName, r2Key, fileType, fileSize, courseId, notebookId }.
+ * Response: 201 Document, initially pending; GET polling reports later status. Serialize dates as ISO strings with no envelope.
+ * Errors: { error: string } with 400 validation, 401 authentication,
+ * 404 missing/ownership, 409 conflict, or 500 unexpected failure.
+ * @param req - Authenticated Express request; scope all records to req.user.id.
+ * @param res - Response carrying the documented status and payload.
+ * @returns Resolves after the response when implemented.
  */
-export const ingestPipeline = async (req: Request, res: Response) => {
-  const {
-    name,
-    originalName,
-    r2Key,
-    fileType,
-    fileSize,
-    courseId,
-    notebookId,
-  } = req.body as ConfirmFileUploadReq;
-  // don't touch it now.
-};
+export const ingestPipeline = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {};
 
 /**
- * @description Controller function to retrieve all documents for the user from the database.
- * EndPoint: GET /documents/
- *
- * @param req - Express Request object
- * @param res - Express Response object
- * @returns void
+ * GET /api/documents
+ * List all owned document metadata and ingestion states.
+ * No body.
+ * Response: 200 Document[] Serialize dates as ISO strings with no envelope.
+ * Errors: { error: string } with 400 validation, 401 authentication,
+ * 404 missing/ownership, 409 conflict, or 500 unexpected failure.
+ * @param req - Authenticated Express request; scope all records to req.user.id.
+ * @param res - Response carrying the documented status and payload.
+ * @returns Resolves after the response when implemented.
  */
-export const getAllDocuments = async (req: Request, res: Response) => {};
+export const getAllDocuments = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {};
 
 /**
- * @description Controller function to retrieve a single document by its ID and its ingestion status from the database.
- * EndPoint: GET /documents/:id
- *
- * @param req - Express Request object
- * @param res - Express Response object
- * @returns void
+ * GET /api/documents/:id
+ * Retrieve one owned document including ingestion status/error.
+ * req.params.id.
+ * Response: 200 Document Serialize dates as ISO strings with no envelope.
+ * Errors: { error: string } with 400 validation, 401 authentication,
+ * 404 missing/ownership, 409 conflict, or 500 unexpected failure.
+ * @param req - Authenticated Express request; scope all records to req.user.id.
+ * @param res - Response carrying the documented status and payload.
+ * @returns Resolves after the response when implemented.
  */
-export const getSingleDocument = async (req: Request, res: Response) => {};
+export const getSingleDocument = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {};
 
 /**
- * @description Controller function to delete a document by its ID from the database, R2 bucket, chunks, embedding db.
- * EndPoint: DELETE /documents/:id
- *
- * @param req - Express Request object
- * @param res - Express Response object
- * @returns void
+ * DELETE /api/documents/:id
+ * Reject test references, delete R2 object/chunks/embeddings and metadata, and clear flashcard-set document references.
+ * req.params.id.
+ * Response: 204 without a body; 409 if referenced by tests Serialize dates as ISO strings with no envelope.
+ * Errors: { error: string } with 400 validation, 401 authentication,
+ * 404 missing/ownership, 409 conflict, or 500 unexpected failure.
+ * @param req - Authenticated Express request; scope all records to req.user.id.
+ * @param res - Response carrying the documented status and payload.
+ * @returns Resolves after the response when implemented.
  */
-export const deleteDocument = async (req: Request, res: Response) => {};
+export const deleteDocument = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {};
 
 /**
- * @description Controller function to edit the file name of a document by its ID in the database. // or maybe retag
- * EndPoint: PATCH /documents/:id
- *
- * @param req - Express Request object
- * @param res - Express Response object
- * @returns void
+ * PATCH /api/documents/:id
+ * Validate and update an owned document display name and updatedAt; retain originalName and R2 key.
+ * req.params.id; body { name }.
+ * Response: 200 Document Serialize dates as ISO strings with no envelope.
+ * Errors: { error: string } with 400 validation, 401 authentication,
+ * 404 missing/ownership, 409 conflict, or 500 unexpected failure.
+ * @param req - Authenticated Express request; scope all records to req.user.id.
+ * @param res - Response carrying the documented status and payload.
+ * @returns Resolves after the response when implemented.
  */
-export const editDocument = async (req: Request, res: Response) => {};
+export const editDocument = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {};

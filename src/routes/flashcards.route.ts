@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { protectRoute } from "../middleware/protectRoute";
 import {
+  createFlashcardSet,
   getAllFlashCardsSets,
   generateFlashcards,
   getFlashcardsBySetId,
@@ -12,6 +13,7 @@ import {
 
 const router = Router();
 
+router.post("/", protectRoute, createFlashcardSet);
 router.get("/", protectRoute, getAllFlashCardsSets);
 router.post("/generate", protectRoute, generateFlashcards);
 router.get("/:setId", protectRoute, getFlashcardsBySetId);
