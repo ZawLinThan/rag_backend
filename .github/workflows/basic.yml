@@ -9,6 +9,24 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: dummy-supabase-publishable-key
+      SUPABASE_SECRET_KEY: dummy-supabase-secret-key
+      SUPABASE_JWKS_URL: https://example.supabase.co/auth/v1/.well-known/jwks.json
+      DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+      FRONTEND_URL: http://localhost:5173
+      R2_ENDPOINT: https://example.r2.cloudflarestorage.com
+      R2_ACCESS_KEY_ID: dummy-r2-access-key
+      R2_SECRET_ACCESS_KEY: dummy-r2-secret-key
+      R2_BUCKET_NAME: dummy-bucket
+      GROQ_API_KEY: dummy-groq-api-key
+      GROQ_MODEL: dummy-groq-model
+      OPENROUTER_API_KEY: dummy-openrouter-api-key
+      REDIS_URL: redis://localhost:6379
+      PROCESS_DOCUMENT_QUEUE: document-processing-test
+      SENTRY_DSN: https://dummy@example.invalid/1
 
     steps:
       - name: Checkout repository
