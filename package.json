@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "build": "tsc",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "commit": "npm run format && jest && eslint . && tsc --noEmit && tsc"
   },
   "keywords": [],
   "author": "",
