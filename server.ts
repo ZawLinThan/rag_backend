@@ -1,7 +1,9 @@
+import "./src/config/sentry";
 import { env } from "./src/config/env";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import * as Sentry from "@sentry/node";
 
 import notebooksRouter from "./src/routes/notebooks.route";
 import documentsRouter from "./src/routes/documents.route";
@@ -33,6 +35,23 @@ app.use("/api/chat", chatRouter);
 app.use("/api/flashcards", flashcardsRouter);
 app.use("/api/tests", testsRouter);
 app.use("/api/courses", coursesRouter);
+
+Sentry.setupExpressErrorHandler(app);
+
+app.use(
+  (
+    err: Error,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  },
+);
 
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);

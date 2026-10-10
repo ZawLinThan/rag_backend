@@ -2,6 +2,9 @@ import "dotenv/config";
 import { z } from "zod";
 
 const envSchema = z.object({
+  NODE_ENV: z
+    .enum(["development", "test", "production"])
+    .default("development"),
   SUPABASE_URL: z.url(),
   SUPABASE_PUBLISHABLE_KEY: z.string().trim().min(1),
   SUPABASE_SECRET_KEY: z.string().trim().min(1),
@@ -16,6 +19,7 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().trim().min(1),
   REDIS_URL: z.url(),
   PROCESS_DOCUMENT_QUEUE: z.string().trim().min(1),
+  SENTRY_DSN: z.url(),
 });
 
 const result = envSchema.safeParse(process.env);

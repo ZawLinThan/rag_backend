@@ -2,6 +2,7 @@ import { Job } from "bullmq";
 import { db } from "../db";
 import { Chunk, documents, DocumentStatus } from "../db/schema";
 import { eq } from "drizzle-orm";
+import { Sentry } from "../config/sentry";
 
 // download from r2
 const downloadFromR2 = async (r2Key: string) => {};
@@ -33,6 +34,11 @@ export const updateDocumentStatus = async (
       .where(eq(documents.id, documentId))
       .returning();
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: {
+        area: "document-status-update",
+      },
+    });
     throw new Error("Failed to update the document status");
   }
 };
@@ -43,6 +49,7 @@ type Props = {
 };
 
 export const processDocument = async ({ documentId, job }: Props) => {
+  /// DON"T TOUCH THIS FILE NOW ///
   updateDocumentStatus(documentId, "processing");
 
   try {
@@ -55,7 +62,15 @@ export const processDocument = async ({ documentId, job }: Props) => {
 
     await job.updateProgress(10);
 
-    const file = await downloadFromR2(document.r2Key);
+    const file = Sentry.startSpan(
+      {
+        name: "download-r2",
+        op: "storage.download",
+      },
+      async () => {
+        return downloadFromR2(document.r2Key);
+      },
+    );
 
     await job.updateProgress(25);
 
@@ -77,6 +92,11 @@ export const processDocument = async ({ documentId, job }: Props) => {
 
     await job.updateProgress(100);
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: {
+        area: "document-ingestion",
+      },
+    });
     await updateDocumentStatus(documentId, "failed");
     throw error;
   }

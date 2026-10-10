@@ -1,3 +1,5 @@
+import { DocumentStatus } from "../db/schema";
+
 /** Backend JSON contracts; maintained independently from frontend types.
  * Timestamps are serialized ISO strings, unlike database Date values. */
 export type Course = {
@@ -23,7 +25,7 @@ export type Document = {
   r2Key: string;
   fileType: string;
   fileSize: number;
-  status: "pending" | "processing" | "ready" | "failed";
+  status: DocumentStatus;
   errorMessage: string | null;
   courseId: string | null;
   notebookId: string | null;
