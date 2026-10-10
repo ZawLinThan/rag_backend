@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
-import { workerRedis } from "../config/redis";
-import { processDocument } from "../services/ingest.service";
-import { Sentry } from "../config/sentry";
+import { workerRedis } from "../config/redis.js";
+import { processDocument } from "../services/ingest.service.js";
+import { Sentry } from "../config/sentry.js";
 
 const worker = new Worker(
   "document-processing",

@@ -1,10 +1,10 @@
-import { env } from "./env";
-import IORedis from "ioredis";
+import { env } from "./env.js";
+import { Redis } from "ioredis";
 
-export const workerRedis = new IORedis(env.REDIS_URL, {
+export const workerRedis = new Redis(env.REDIS_URL, {
   maxRetriesPerRequest: null,
 });
 
-export const producerRedis = new IORedis(env.REDIS_URL, {
+export const producerRedis = new Redis(env.REDIS_URL, {
   maxRetriesPerRequest: 1,
 });

@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { chatStructured } from "../config/openRouterAI";
+import { chatStructured } from "../config/openRouterAI.js";
 import { z } from "zod";
 
 const AnswerSchema = z.object({

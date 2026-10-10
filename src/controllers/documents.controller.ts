@@ -1,14 +1,17 @@
-import { env } from "../config/env";
+import { env } from "../config/env.js";
 import type { Request, Response } from "express";
-import type { ConfirmFileUploadReq, GetPresignedUrlReq } from "../types/index";
+import type {
+  ConfirmFileUploadReq,
+  GetPresignedUrlReq,
+} from "../types/index.js";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { s3 } from "../config/r2";
+import { s3 } from "../config/r2.js";
 import { HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { db } from "../db";
-import { documents } from "../db/schema";
-import { documentQueue } from "../queue/document.queue";
-import { updateDocumentStatus } from "../services/ingest.service";
-import { Sentry } from "../config/sentry";
+import { db } from "../db/index.js";
+import { documents } from "../db/schema.js";
+import { documentQueue } from "../queue/document.queue.js";
+import { updateDocumentStatus } from "../services/ingest.service.js";
+import { Sentry } from "../config/sentry.js";
 /**
  * @description Controller function to generate a presigned URL for uploading a file to S3.
  * File size limit is 20MB. Presigned URL expires in 3600 seconds.

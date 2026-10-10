@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { protectRoute } from "../middleware/protectRoute";
+import { protectRoute } from "../middleware/protectRoute.js";
 import {
   createFlashcardSet,
   getAllFlashCardsSets,
@@ -9,7 +9,7 @@ import {
   updateSingleFlashcard,
   deleteSingleFlashcard,
   deleteFlashcardSet,
-} from "../controllers/flashcards.controller";
+} from "../controllers/flashcards.controller.js";
 
 const router = Router();
 

@@ -1,16 +1,16 @@
-import "./src/config/sentry";
-import { env } from "./src/config/env";
+import "./config/sentry.js";
+import { env } from "./config/env.js";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import * as Sentry from "@sentry/node";
 
-import notebooksRouter from "./src/routes/notebooks.route";
-import documentsRouter from "./src/routes/documents.route";
-import chatRouter from "./src/routes/chat.route";
-import flashcardsRouter from "./src/routes/flashcards.route";
-import coursesRouter from "./src/routes/courses.route";
-import testsRouter from "./src/routes/tests.route";
+import notebooksRouter from "./routes/notebooks.route.js";
+import documentsRouter from "./routes/documents.route.js";
+import chatRouter from "./routes/chat.route.js";
+import flashcardsRouter from "./routes/flashcards.route.js";
+import coursesRouter from "./routes/courses.route.js";
+import testsRouter from "./routes/tests.route.js";
 
 const app = express();
 const port = 3000;

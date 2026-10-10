@@ -6,8 +6,9 @@
   "scripts": {
     "test": "jest",
     "format": "npx prettier . --write",
-    "dev": "tsx watch server.ts",
-    "worker": "tsx watch src/workers/document.worker.ts"
+    "dev": "tsx watch src/server.ts",
+    "worker": "tsx watch src/workers/document.worker.ts",
+    "lint": "eslint ."
   },
   "keywords": [],
   "author": "",
@@ -30,22 +31,27 @@
     "express": "^5.2.1",
     "groq-sdk": "^1.6.0",
     "ioredis": "^6.0.0",
+    "lint": "^1.2.2",
     "openai": "^7.15.0",
     "postgres": "^3.4.9",
     "tsx": "^4.23.13",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.4",
     "drizzle-kit": "^0.31.10",
+    "eslint": "^10.12.0",
     "jest": "^30.5.2",
+    "jiti": "^2.7.0",
     "prettier": "3.9.7",
     "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.1"
   }
 }

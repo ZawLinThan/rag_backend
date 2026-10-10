@@ -1,8 +1,8 @@
 import { Job } from "bullmq";
-import { db } from "../db";
-import { Chunk, documents, DocumentStatus } from "../db/schema";
+import { db } from "../db/index.js";
+import { Chunk, documents, DocumentStatus } from "../db/schema.js";
 import { eq } from "drizzle-orm";
-import { Sentry } from "../config/sentry";
+import { Sentry } from "../config/sentry.js";
 
 // download from r2
 const downloadFromR2 = async (r2Key: string) => {};

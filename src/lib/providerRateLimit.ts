@@ -1,6 +1,6 @@
-import { Sentry } from "../config/sentry";
+import { Sentry } from "../config/sentry.js";
 import { setTimeout as delay } from "node:timers/promises";
-import { Provider } from "../types";
+import { Provider } from "../types/index.js";
 
 /**
  * Reads the HTTP status from a provider error.

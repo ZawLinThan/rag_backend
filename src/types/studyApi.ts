@@ -1,4 +1,4 @@
-import { DocumentStatus } from "../db/schema";
+import { DocumentStatus } from "../db/schema.js";
 
 /** Backend JSON contracts; maintained independently from frontend types.
  * Timestamps are serialized ISO strings, unlike database Date values. */

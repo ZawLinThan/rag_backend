@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { protectRoute } from "../middleware/protectRoute";
+import { protectRoute } from "../middleware/protectRoute.js";
 import {
   deleteDocument,
   editDocument,
@@ -7,7 +7,7 @@ import {
   getPresignedUrl,
   getSingleDocument,
   ingestPipeline,
-} from "../controllers/documents.controller";
+} from "../controllers/documents.controller.js";
 
 const router = Router();
 

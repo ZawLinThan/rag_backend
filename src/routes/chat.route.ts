@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { protectRoute } from "../middleware/protectRoute";
+import { protectRoute } from "../middleware/protectRoute.js";
 import {
   createNewChatSession,
   deleteChatSession,
   getAllChatSessions,
   getSingleChatSession,
-} from "../controllers/chat.controller";
+} from "../controllers/chat.controller.js";
 
 const router = Router();
 

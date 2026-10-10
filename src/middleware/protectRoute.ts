@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
-import { supabase } from "../config/supabase";
-import { Sentry } from "../config/sentry";
+import { supabase } from "../config/supabase.js";
+import { Sentry } from "../config/sentry.js";
 
 /**
  * @description Middleware to protect routes by checking for a valid session.
