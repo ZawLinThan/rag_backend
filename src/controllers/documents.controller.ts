@@ -1,8 +1,13 @@
+import { env } from "../config/env";
 import type { Request, Response } from "express";
-import type { GetPresignedUrlReq } from "../types/index";
+import type { ConfirmFileUploadReq, GetPresignedUrlReq } from "../types/index";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3 } from "../config/r2";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { db } from "../db";
+import { documents } from "../db/schema";
+import { documentQueue } from "../queue/document.queue";
+import { updateDocumentStatus } from "../services/ingest.service";
 /**
  * @description Controller function to generate a presigned URL for uploading a file to S3.
  * File size limit is 20MB. Presigned URL expires in 3600 seconds.
@@ -34,7 +39,7 @@ export const getPresignedUrl = async (req: Request, res: Response) => {
     const uploadUrl = await getSignedUrl(
       s3,
       new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME,
+        Bucket: env.R2_BUCKET_NAME,
         Key: key,
         ContentType: contentType,
       }),
@@ -44,7 +49,6 @@ export const getPresignedUrl = async (req: Request, res: Response) => {
     res.status(200).json({
       uploadUrl,
       key,
-      publicUrl: `${process.env.R2_PUBLIC_URL}/${key}`,
       expiresIn: 3600,
     });
   } catch (error) {
@@ -64,10 +68,84 @@ export const getPresignedUrl = async (req: Request, res: Response) => {
  * @param res - Response carrying the documented status and payload.
  * @returns Resolves after the response when implemented.
  */
-export const ingestPipeline = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {};
+export const ingestPipeline = async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+
+  // don't touch this function now !! //
+  // need to consider the file ingestion for the test generations based on the sample test
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const {
+    name,
+    originalName,
+    r2Key,
+    fileType,
+    fileSize,
+    courseId,
+    notebookId,
+  } = req.body as ConfirmFileUploadReq;
+
+  try {
+    // verify if the file exists in R2 or not
+    await s3.send(
+      new HeadObjectCommand({
+        Bucket: env.R2_BUCKET_NAME,
+        Key: r2Key,
+      }),
+    );
+
+    // create document row
+    const [document] = await db
+      .insert(documents)
+      .values({
+        userId,
+        name,
+        originalName,
+        r2Key,
+        fileType,
+        fileSize,
+        courseId,
+        notebookId,
+        status: "pending",
+      })
+      .returning();
+    // process document
+    try {
+      await documentQueue.add(
+        env.PROCESS_DOCUMENT_QUEUE,
+        {
+          documentId: document.id,
+        },
+        {
+          attempts: 3,
+          backoff: {
+            type: "exponential",
+            delay: 1000,
+          },
+          removeOnComplete: 100,
+          removeOnFail: 500,
+        },
+      );
+
+      await updateDocumentStatus(document.id, "queued");
+    } catch (queueError) {
+      await updateDocumentStatus(document.id, "failed");
+
+      throw queueError;
+    }
+
+    return res.status(202).json({
+      documentId: document.id,
+      status: "queued",
+    });
+  } catch (error) {
+    console.log("Error creating document row: ", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
 
 /**
  * GET /api/documents

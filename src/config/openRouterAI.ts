@@ -1,3 +1,4 @@
+import { env } from "./env";
 import { OpenRouter } from "@openrouter/sdk";
 import { ChatRequest } from "../types";
 import z from "zod";
@@ -10,7 +11,7 @@ import { beforeProviderCall } from "../lib/providerCalls";
 import { SendChatCompletionRequestResponse } from "@openrouter/sdk/models/operations";
 
 const openrouter = new OpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
+  apiKey: env.OPENROUTER_API_KEY,
 });
 
 /**

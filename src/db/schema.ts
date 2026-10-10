@@ -46,7 +46,8 @@ export const notebooks = pgTable("notebooks", {
   // fk: courseId -> courses(id)
 });
 
-type DocumentStatus = "pending" | "processing" | "ready" | "failed";
+export type DocumentStatus =
+  "pending" | "queued" | "processing" | "ready" | "failed";
 export const documents = pgTable(
   "documents",
   {

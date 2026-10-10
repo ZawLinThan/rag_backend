@@ -64,7 +64,6 @@ export type Test = {
 export type SuccessfulPresignedUrlResponse = {
   uploadUrl: string;
   key: string;
-  publicUrl: string;
   expiresIn: number;
 };
 export type ApiError = { error: string };

@@ -1,3 +1,4 @@
+import { env } from "./env";
 import OpenAI from "openai";
 import { ChatRequest } from "../types";
 import { z } from "zod";
@@ -10,7 +11,7 @@ import { beforeProviderCall } from "../lib/providerCalls";
 
 /** Groq client configured with the OpenAI-compatible API. */
 export const client = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
+  apiKey: env.GROQ_API_KEY,
   baseURL: "https://api.groq.com/openai/v1",
   timeout: 60000,
   maxRetries: 0,
@@ -118,11 +119,9 @@ export const ChatStructured = async <T>(props: ChatRequest<T>): Promise<T> => {
     try {
       const request: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming =
         {
-          model: process.env.GROQ_MODEL || "openai/gpt-oss-20b",
+          model: env.GROQ_MODEL,
           temperature: 0.2,
-          ...((process.env.GROQ_MODEL || "openai/gpt-oss-20b").startsWith(
-            "openai/gpt-oss-",
-          )
+          ...(env.GROQ_MODEL.startsWith("openai/gpt-oss-")
             ? { reasoning_effort: "low" as const }
             : {}),
           max_completion_tokens: props.completionTokens,

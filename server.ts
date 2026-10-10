@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+import { env } from "./src/config/env";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -10,14 +10,12 @@ import flashcardsRouter from "./src/routes/flashcards.route";
 import coursesRouter from "./src/routes/courses.route";
 import testsRouter from "./src/routes/tests.route";
 
-dotenv.config();
-
 const app = express();
 const port = 3000;
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: env.FRONTEND_URL,
     credentials: true,
   }),
 );

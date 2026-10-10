@@ -6,7 +6,8 @@
   "scripts": {
     "test": "jest",
     "format": "npx prettier . --write",
-    "dev": "tsx watch server.ts"
+    "dev": "tsx watch server.ts",
+    "worker": "tsx watch src/workers/document.worker.ts"
   },
   "keywords": [],
   "author": "",
@@ -19,12 +20,14 @@
     "@supabase/server": "^1.6.1",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.3",
+    "bullmq": "^6.3.12",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
     "groq-sdk": "^1.6.0",
+    "ioredis": "^6.0.0",
     "openai": "^7.15.0",
     "postgres": "^3.4.9",
     "tsx": "^4.23.13",
