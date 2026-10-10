@@ -92,7 +92,10 @@ type Props = {
   job: Job<DocumentJob, void>;
 };
 
-export const processDocument = async ({ documentId, job }: Props): Promise<void> => {
+export const processDocument = async ({
+  documentId,
+  job,
+}: Props): Promise<void> => {
   /// DO NOT TOUCH THIS FILE NOW ///
   await updateDocumentStatus(documentId, "processing");
 
@@ -150,7 +153,7 @@ export const processDocument = async ({ documentId, job }: Props): Promise<void>
 
     await job.updateProgress(85);
 
-    // store chunks 
+    // store chunks
     await Sentry.startSpan(
       {
         name: "store-chunks",
