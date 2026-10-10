@@ -1,6 +1,7 @@
 import { Worker } from "bullmq";
-import { workerRedis } from "../config/redis";
-import { processDocument } from "../services/ingest.service";
+import { workerRedis } from "../config/redis.js";
+import { processDocument } from "../services/ingest.service.js";
+import { Sentry } from "../config/sentry.js";
 
 const worker = new Worker(
   "document-processing",
@@ -8,11 +9,19 @@ const worker = new Worker(
     const { documentId } = job.data;
     console.log("Processing document: ", documentId);
 
-    await processDocument({ documentId, job });
-
-    return {
-      documentId,
-    };
+    return Sentry.startSpan(
+      {
+        name: "process-document",
+        op: "bullmq.job",
+        attributes: {
+          jobId: job.id,
+          documentId: documentId,
+        },
+      },
+      async () => {
+        return processDocument({ documentId, job });
+      },
+    );
   },
   {
     connection: workerRedis,

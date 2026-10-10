@@ -1,4 +1,4 @@
-import { protectRoute } from "../middleware/protectRoute";
+import { protectRoute } from "../middleware/protectRoute.js";
 import { Router } from "express";
 import {
   getTestContent,
@@ -6,7 +6,7 @@ import {
   getAllTests,
   getSingleTestById,
   deleteSingleTest,
-} from "../controllers/tests.controller";
+} from "../controllers/tests.controller.js";
 
 const router = Router();
 

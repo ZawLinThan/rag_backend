@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
-import { supabase } from "../config/supabase";
+import { supabase } from "../config/supabase.js";
+import { Sentry } from "../config/sentry.js";
 
 /**
  * @description Middleware to protect routes by checking for a valid session.
@@ -35,7 +36,16 @@ export const protectRoute = async (
     }
 
     req.user = data.user;
-  } catch {
+
+    Sentry.setUser({
+      id: data.user.id,
+    });
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: {
+        area: "authentication",
+      },
+    });
     res.status(503).json({ error: "Authentication service unavailable" });
     return;
   }

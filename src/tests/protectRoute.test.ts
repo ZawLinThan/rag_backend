@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
-import { protectRoute } from "../middleware/protectRoute";
-import { supabase } from "../config/supabase";
+import { protectRoute } from "../middleware/protectRoute.js";
+import { supabase } from "../config/supabase.js";
 
-jest.mock("../config/supabase", () => ({
+jest.mock("../config/supabase.js", () => ({
   supabase: { auth: { getUser: jest.fn() } },
 }));
 

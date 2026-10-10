@@ -1,5 +1,5 @@
 import { Queue } from "bullmq";
-import { producerRedis } from "../config/redis";
+import { producerRedis } from "../config/redis.js";
 
 export type DocumentJob = {
   documentId: string;

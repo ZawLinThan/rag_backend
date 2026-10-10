@@ -1,13 +1,13 @@
-import { env } from "./env";
+import { env } from "./env.js";
 import OpenAI from "openai";
-import { ChatRequest } from "../types";
+import { ChatRequest } from "../types/index.js";
 import { z } from "zod";
-import { ModelOutputError } from "../lib/errors";
+import { ModelOutputError } from "../lib/errors.js";
 import {
   scheduleProviderRequest,
   tagProviderError,
-} from "../lib/providerRateLimit";
-import { beforeProviderCall } from "../lib/providerCalls";
+} from "../lib/providerRateLimit.js";
+import { beforeProviderCall } from "../lib/providerCalls.js";
 
 /** Groq client configured with the OpenAI-compatible API. */
 export const client = new OpenAI({

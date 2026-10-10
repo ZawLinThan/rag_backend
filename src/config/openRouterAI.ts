@@ -1,13 +1,13 @@
-import { env } from "./env";
+import { env } from "./env.js";
 import { OpenRouter } from "@openrouter/sdk";
-import { ChatRequest } from "../types";
+import { ChatRequest } from "../types/index.js";
 import z from "zod";
-import { ModelOutputError } from "../lib/errors";
+import { ModelOutputError } from "../lib/errors.js";
 import {
   scheduleProviderRequest,
   tagProviderError,
-} from "../lib/providerRateLimit";
-import { beforeProviderCall } from "../lib/providerCalls";
+} from "../lib/providerRateLimit.js";
+import { beforeProviderCall } from "../lib/providerCalls.js";
 import { SendChatCompletionRequestResponse } from "@openrouter/sdk/models/operations";
 
 const openrouter = new OpenRouter({

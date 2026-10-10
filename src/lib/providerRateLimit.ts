@@ -1,5 +1,6 @@
+import { Sentry } from "../config/sentry.js";
 import { setTimeout as delay } from "node:timers/promises";
-import { Provider } from "../types";
+import { Provider } from "../types/index.js";
 
 /**
  * Reads the HTTP status from a provider error.
@@ -139,6 +140,11 @@ export class ProviderScheduler {
       try {
         return await request();
       } catch (error) {
+        Sentry.captureException(error, {
+          tags: {
+            area: "provider-rate-limit",
+          },
+        });
         tagProviderError(error, provider);
         if (providerStatus(error) !== 429) throw error;
         const milliseconds = retryDelay(error);
@@ -193,6 +199,11 @@ export const scheduleProviderRequest = async <T>(
       ? await scheduler.run(provider, tokens, request)
       : await request();
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: {
+        area: "provider-request-scheduling",
+      },
+    });
     throw tagProviderError(error, provider);
   }
 };

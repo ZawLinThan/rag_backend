@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { protectRoute } from "../middleware/protectRoute";
+import { protectRoute } from "../middleware/protectRoute.js";
 import {
   getAllNotebooks,
   createNotebook,
-} from "../controllers/notebooks.controller";
+} from "../controllers/notebooks.controller.js";
 
 const router = Router();
 

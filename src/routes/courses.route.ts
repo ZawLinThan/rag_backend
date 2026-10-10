@@ -1,11 +1,11 @@
-import { protectRoute } from "../middleware/protectRoute";
+import { protectRoute } from "../middleware/protectRoute.js";
 import { Router } from "express";
 import {
   getAllCourses,
   createCourse,
   getCourseById,
   deleteCourse,
-} from "../controllers/courses.controller";
+} from "../controllers/courses.controller.js";
 
 const router = Router();
 
