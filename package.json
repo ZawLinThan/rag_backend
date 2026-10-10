@@ -8,7 +8,10 @@
     "format": "npx prettier . --write",
     "dev": "tsx watch src/server.ts",
     "worker": "tsx watch src/workers/document.worker.ts",
-    "lint": "eslint ."
+    "lint": "eslint .", 
+    "build": "tsc", 
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
