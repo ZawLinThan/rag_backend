@@ -1,11 +1,11 @@
 import type { Request, Response } from "express";
 import { jest, expect, it, beforeEach } from "@jest/globals";
 
-jest.mock("../src/config/supabase.js", () => ({
+jest.mock("../../src/config/supabase.js", () => ({
   supabase: { auth: { getUser: jest.fn() } },
 }));
 
-jest.mock("../src/config/sentry.js", () => ({
+jest.mock("../../src/config/sentry.js", () => ({
   Sentry: { setUser: jest.fn(), captureException: jest.fn() },
 }));
 

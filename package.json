@@ -13,7 +13,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "commit": "npm run format && jest && eslint . && tsc --noEmit && tsc"
+    "commit": "npm run format && jest && tsc --noEmit && tsc && eslint ."
   },
   "keywords": [],
   "author": "",
