@@ -8,7 +8,9 @@ import type { Config } from "jest";
 const config: Config = {
   preset: "ts-jest",
   testEnvironment: "node",
-  roots: ["<rootDir>/src"],
+  setupFiles: ["<rootDir>/tests/setupEnv.ts"], 
+  roots: ["<rootDir>/src", "<rootDir>/tests"],
+  testPathIgnorePatterns: ["/node_modules/", "\\.api\\.test\\.ts$"],
   transform: {
     "^.+\\.tsx?$": [
       "ts-jest",
