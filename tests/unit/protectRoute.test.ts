@@ -9,9 +9,9 @@ jest.mock("../src/config/sentry.js", () => ({
   Sentry: { setUser: jest.fn(), captureException: jest.fn() },
 }));
 
-import { protectRoute } from "../src/middleware/protectRoute.js";
-import { supabase } from "../src/config/supabase.js";
-import { Sentry } from "../src/config/sentry.js";
+import { protectRoute } from "../../src/middleware/protectRoute.js";
+import { supabase } from "../../src/config/supabase.js";
+import { Sentry } from "../../src/config/sentry.js";
 
 const getUser = jest.mocked(supabase.auth.getUser);
 
