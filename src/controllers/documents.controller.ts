@@ -70,7 +70,7 @@ export const getPresignedUrl = async (req: Request, res: Response) => {
  * POST /api/documents/confirm
  * Verify the uploaded R2 key belongs to the user and exists; validate notebook/course ownership, create metadata and queue ingestion (extract, chunk, embed).
  * ConfirmFileUploadReq: { name, originalName, r2Key, fileType, fileSize, courseId, notebookId }.
- * Response: 201 Document, initially pending; GET polling reports later status. Serialize dates as ISO strings with no envelope.
+ * Response: 202 { documentId, status: "queued" }; GET /api/documents/:id polling reports later processing status.
  * Errors: { error: string } with 400 validation, 401 authentication,
  * 404 missing/ownership, 409 conflict, or 500 unexpected failure.
  * @param req - Authenticated Express request; scope all records to req.user.id.

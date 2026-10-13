@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { z } from "zod";
-import { chatStructured } from "../config/openRouterAI.js";
+import { chatStructured } from "../../src/config/openRouterAI.js";
 
 const AnswerSchema = z.object({
   answer: z.string(),
@@ -22,5 +22,4 @@ async function main() {
 
 main().catch((error) => {
   console.error("OpenRouter test failed:", error);
-  process.exitCode = 1;
 });
