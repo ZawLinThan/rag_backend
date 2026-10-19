@@ -1,4 +1,20 @@
 import type { Request, Response } from "express";
+import { db } from "../db/index.js";
+import { eq } from "drizzle-orm";
+import {
+  courses,
+  documents,
+  flashcardSets,
+  notebooks,
+  type Course,
+} from "../db/schema.js";
+
+
+const serializeCourse = (course: Course) => ({
+  ...course,
+  createdAt: course.createdAt.toISOString(),
+  updatedAt: course.updatedAt.toISOString()
+})
 
 /**
  * GET /api/courses
@@ -14,7 +30,22 @@ import type { Request, Response } from "express";
 export const getAllCourses = async (
   req: Request,
   res: Response,
-): Promise<void> => {};
+): Promise<void> => {
+  const userID = req.user?.id;
+  if (!userID) {
+    res.status(401).json({ error: "Unauthorized user"});
+    return;
+  }
+  try {
+    const result = await db
+      .select()
+      .from(courses)
+      .where(eq(courses.userId, userID))
+    res.status(200).json(result.map(serializeCourse));
+  } catch (error) {
+    res.status(500).json({error: "Internal server error"});
+  }
+};
 
 /**
  * POST /api/courses
@@ -30,7 +61,39 @@ export const getAllCourses = async (
 export const createCourse = async (
   req: Request,
   res: Response,
-): Promise<void> => {};
+): Promise<void> => {
+  const userID = req.user?.id;
+  if (!userID) {
+    res.status(401).json({ error: "Unauthorized user" });
+    return;
+  }
+
+  const body = req.body as Record<string, unknown>;
+  const name = typeof body.name == "string" ? body.name.trim() : undefined;
+  const code = typeof body.code == "string" ? body.code.trim() : undefined;
+  const semester = typeof body.semester == "string" ? body.semester.trim() : undefined;
+
+  if (name === undefined || code === undefined || semester === undefined) {
+    res.status(400).json({ error: "Invalid course data" });
+    return;
+  }
+
+  try {
+    const [course] = await db
+      .insert(courses)
+      .values({ userId: userID, name, code, semester })
+      .returning();
+
+    if (!course) {
+      res.status(500).json({ error: "Failed to create course" });
+      return;
+    }
+
+    res.status(201).json(serializeCourse(course));
+  } catch (error) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
 
 /**
  * GET /api/courses/:id
