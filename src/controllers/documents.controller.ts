@@ -6,9 +6,19 @@ import type {
 } from "../types/index.js";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3 } from "../config/r2.js";
-import { HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
 import { db } from "../db/index.js";
-import { documents } from "../db/schema.js";
+import {
+  chatSessionDocuments,
+  documents,
+  flashcardSets,
+  tests,
+} from "../db/schema.js";
+import { and, desc, eq } from "drizzle-orm";
 import { documentQueue } from "../queue/document.queue.js";
 import { updateDocumentStatus } from "../services/ingest.service.js";
 import { Sentry } from "../config/sentry.js";
@@ -180,7 +190,33 @@ export const ingestPipeline = async (req: Request, res: Response) => {
 export const getAllDocuments = async (
   req: Request,
   res: Response,
-): Promise<void> => {};
+): Promise<void> => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  try {
+    const ownedDocuments = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.userId, userId))
+      .orderBy(desc(documents.createdAt));
+
+    // The documented contract returns the document array directly, not an envelope.
+    res.status(200).json(ownedDocuments);
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: {
+        area: "document-list",
+      },
+    });
+    console.error("Error fetching documents:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
 
 /**
  * GET /api/documents/:id
@@ -196,7 +232,45 @@ export const getAllDocuments = async (
 export const getSingleDocument = async (
   req: Request,
   res: Response,
-): Promise<void> => {};
+): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params as { id: string };
+
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  if (!id) {
+    res.status(400).json({ error: "Document ID is required" });
+    return;
+  }
+
+  try {
+    const [document] = await db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.id, id), eq(documents.userId, userId)))
+      .limit(1);
+
+    // Looking up by both id and userId keeps another user's document indistinguishable from absent.
+    if (!document) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    // The documented contract returns one document directly, not an envelope.
+    res.status(200).json(document);
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: {
+        area: "document-read",
+      },
+    });
+    console.error("Error fetching document:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
 
 /**
  * DELETE /api/documents/:id
@@ -212,7 +286,93 @@ export const getSingleDocument = async (
 export const deleteDocument = async (
   req: Request,
   res: Response,
-): Promise<void> => {};
+): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params as { id: string };
+
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  if (!id) {
+    res.status(400).json({ error: "Document ID is required" });
+    return;
+  }
+
+  try {
+    const [document] = await db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.id, id), eq(documents.userId, userId)))
+      .limit(1);
+
+    if (!document) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    // Tests intentionally restrict document deletion while they use the upload as a reference.
+    const [testReference] = await db
+      .select({ id: tests.id })
+      .from(tests)
+      .where(eq(tests.referenceFileId, id))
+      .limit(1);
+
+    if (testReference) {
+      res.status(409).json({
+        error: "Document is referenced by a test and cannot be deleted",
+      });
+      return;
+    }
+
+    // This relation is also a database-level RESTRICT foreign key, so surface a useful conflict.
+    const [chatSessionReference] = await db
+      .select({ sessionId: chatSessionDocuments.sessionId })
+      .from(chatSessionDocuments)
+      .where(eq(chatSessionDocuments.documentId, id))
+      .limit(1);
+
+    if (chatSessionReference) {
+      res.status(409).json({
+        error: "Document is used by a chat session and cannot be deleted",
+      });
+      return;
+    }
+
+    // Delete the object before metadata. R2 object deletion is idempotent, so a retry is safe
+    // if the subsequent database transaction is interrupted.
+    await s3.send(
+      new DeleteObjectCommand({
+        Bucket: env.R2_BUCKET_NAME,
+        Key: document.r2Key,
+      }),
+    );
+
+    await db.transaction(async (tx) => {
+      // Make the required flashcard-set cleanup explicit, even though the FK also uses SET NULL.
+      await tx
+        .update(flashcardSets)
+        .set({ documentId: null, updatedAt: new Date() })
+        .where(eq(flashcardSets.documentId, id));
+
+      // The schema cascades document deletion to chunks and message_sources for those chunks.
+      await tx
+        .delete(documents)
+        .where(and(eq(documents.id, id), eq(documents.userId, userId)));
+    });
+
+    res.status(204).send();
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: {
+        area: "document-delete",
+      },
+    });
+    console.error("Error deleting document:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
 
 /**
  * PATCH /api/documents/:id
