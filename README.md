@@ -60,23 +60,23 @@ SENTRY_DSN=https://YOUR_PUBLIC_KEY@YOUR_SENTRY_HOST/YOUR_PROJECT_ID
 
 Replace the uppercase placeholders. `.env` is ignored by Git.
 
-| Variable | Purpose |
-| --- | --- |
-| `NODE_ENV` | `development`, `test`, or `production`; defaults to `development`. |
-| `SUPABASE_URL` | Supabase project URL. |
-| `SUPABASE_PUBLISHABLE_KEY` | Key used by the Supabase client to verify user access tokens. |
-| `SUPABASE_SECRET_KEY` | Required by environment validation; the current auth client uses the publishable key. |
-| `SUPABASE_JWKS_URL` | Required URL; the current middleware verifies tokens through `supabase.auth.getUser()`. |
-| `DATABASE_URL` | PostgreSQL connection string for Drizzle and migrations. URL-encode special characters in credentials. |
-| `FRONTEND_URL` | Allowed browser origin for API CORS; defaults to `http://localhost:5173`. |
-| `R2_ENDPOINT` | R2 S3 API endpoint. |
-| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | R2 API credentials. |
-| `R2_BUCKET_NAME` | Bucket used for document uploads. |
-| `GROQ_API_KEY` / `GROQ_MODEL` | Groq credentials and model ID used by `groqAI.ts`. |
-| `OPENROUTER_API_KEY` | OpenRouter credentials; the model is currently selected in `openRouterAI.ts`. |
-| `REDIS_URL` | Redis connection URL for queue producers and workers. |
-| `PROCESS_DOCUMENT_QUEUE` | Name of the submitted job, despite the variable's name. The actual BullMQ queue is hardcoded as `document-processing` in both producer and worker. |
-| `SENTRY_DSN` | Sentry error reporting and tracing destination. Must be a valid URL. |
+| Variable                                    | Purpose                                                                                                                                            |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                                  | `development`, `test`, or `production`; defaults to `development`.                                                                                 |
+| `SUPABASE_URL`                              | Supabase project URL.                                                                                                                              |
+| `SUPABASE_PUBLISHABLE_KEY`                  | Key used by the Supabase client to verify user access tokens.                                                                                      |
+| `SUPABASE_SECRET_KEY`                       | Required by environment validation; the current auth client uses the publishable key.                                                              |
+| `SUPABASE_JWKS_URL`                         | Required URL; the current middleware verifies tokens through `supabase.auth.getUser()`.                                                            |
+| `DATABASE_URL`                              | PostgreSQL connection string for Drizzle and migrations. URL-encode special characters in credentials.                                             |
+| `FRONTEND_URL`                              | Allowed browser origin for API CORS; defaults to `http://localhost:5173`.                                                                          |
+| `R2_ENDPOINT`                               | R2 S3 API endpoint.                                                                                                                                |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | R2 API credentials.                                                                                                                                |
+| `R2_BUCKET_NAME`                            | Bucket used for document uploads.                                                                                                                  |
+| `GROQ_API_KEY` / `GROQ_MODEL`               | Groq credentials and model ID used by `groqAI.ts`.                                                                                                 |
+| `OPENROUTER_API_KEY`                        | OpenRouter credentials; the model is currently selected in `openRouterAI.ts`.                                                                      |
+| `REDIS_URL`                                 | Redis connection URL for queue producers and workers.                                                                                              |
+| `PROCESS_DOCUMENT_QUEUE`                    | Name of the submitted job, despite the variable's name. The actual BullMQ queue is hardcoded as `document-processing` in both producer and worker. |
+| `SENTRY_DSN`                                | Sentry error reporting and tracing destination. Must be a valid URL.                                                                               |
 
 `src/config/env.ts` validates environment variables when imported. All variables above except `NODE_ENV` and `FRONTEND_URL` are required, including when running migrations. Empty required values prevent startup. CI dummy values satisfy validation for mocked tests; real service operations require working credentials.
 
@@ -139,7 +139,8 @@ The document upload flow is:
 1. Request a URL from `POST /api/documents/presign` with `fileName`, `contentType`, and `size`.
 2. Upload the file bytes to the returned `uploadUrl` with an HTTP `PUT`, using the same content type.
 3. Call `POST /api/documents/confirm` with the upload metadata, including the returned key as `r2Key`.
-4. The backend stores document metadata and submits a BullMQ job.
+4. The backend stores document metadata and submits a BullMQ job, returning HTTP 202 with `{ documentId, status: "queued" }`.
+5. Poll `GET /api/documents/:id` for processing status until `ready` or `failed`.
 
 Presigned URLs expire after one hour. The presign handler rejects files larger than 20 MiB. Processing currently fails at the ingestion stubs until they are implemented.
 
@@ -168,7 +169,7 @@ curl http://localhost:3000/
 Expected response:
 
 ```json
-{"message":"Server is running"}
+{ "message": "Server is running" }
 ```
 
 This verifies the HTTP server only; it does not check database, Redis, storage, or AI connectivity.
@@ -188,6 +189,10 @@ npm test
 npm run lint
 npm run build
 ```
+
+Independent HTTP acceptance tests live under `tests/`. See [tests/README.md](tests/README.md)
+for the test server, user-token and fixture setup, then run `npm run test:api`.
+This suite includes real uploads and async ingestion polling and uses no backend implementation imports.
 
 Jest runs tests under `src` and excludes compiled tests in `dist`. Its relative `.js` import mapping resolves TypeScript source files. Unit tests mock Supabase authentication but still need valid environment configuration for other imported modules.
 
@@ -218,34 +223,34 @@ Provide environment variables to both processes, or keep `.env` in their working
 
 ## Project layout
 
-| Path | Contents |
-| --- | --- |
-| `src/server.ts` | Express startup, middleware, and route registration. |
-| `src/config/` | Validated environment and external service clients. |
-| `src/routes/` / `src/controllers/` | HTTP routes and handlers. |
-| `src/middleware/protectRoute.ts` | Supabase access-token verification. |
-| `src/db/` | Drizzle client, schema, and inferred database types. |
-| `drizzle/` | SQL migrations and migration metadata. |
-| `src/queue/` / `src/workers/` | BullMQ producer and document worker. |
-| `src/services/` | Ingestion and retrieval pipeline scaffolding. |
-| `src/tests/` | Unit tests and the standalone OpenRouter integration script. |
-| `.github/workflows/basic.yml` | CI dependency installation, type check, tests, and build with dummy environment values. |
+| Path                               | Contents                                                                                |
+| ---------------------------------- | --------------------------------------------------------------------------------------- |
+| `src/server.ts`                    | Express startup, middleware, and route registration.                                    |
+| `src/config/`                      | Validated environment and external service clients.                                     |
+| `src/routes/` / `src/controllers/` | HTTP routes and handlers.                                                               |
+| `src/middleware/protectRoute.ts`   | Supabase access-token verification.                                                     |
+| `src/db/`                          | Drizzle client, schema, and inferred database types.                                    |
+| `drizzle/`                         | SQL migrations and migration metadata.                                                  |
+| `src/queue/` / `src/workers/`      | BullMQ producer and document worker.                                                    |
+| `src/services/`                    | Ingestion and retrieval pipeline scaffolding.                                           |
+| `src/tests/`                       | Unit tests and the standalone OpenRouter integration script.                            |
+| `.github/workflows/basic.yml`      | CI dependency installation, type check, tests, and build with dummy environment values. |
 
 The API registers route groups at `/api/courses`, `/api/notebooks`, `/api/documents`, `/api/chat`, `/api/flashcards`, and `/api/tests`. Consult the route and controller files for implemented endpoints and request types; registration alone does not mean a handler is complete.
 
 ## Troubleshooting
 
-| Symptom | What to check |
-| --- | --- |
-| `Invalid environment variables` | Fill every required variable in `.env`, including `GROQ_MODEL` and `SENTRY_DSN`. Run commands from `backend`. |
-| PostgreSQL connection or migration failure | Check the host, credentials, SSL configuration, network access, and pgvector availability. |
-| Redis connection refused | Start Redis and verify `REDIS_URL` from both API and worker environments. |
-| Documents stay queued | Start the worker and ensure it uses the same Redis instance as the API. |
-| Document status becomes `failed` with `not implemented` | Implement the ingestion helper stubs; credentials alone do not complete the pipeline. |
-| Browser API request blocked by CORS | Set `FRONTEND_URL` to the browser's exact origin and restart the API. |
-| Browser upload to R2 blocked by CORS | Configure CORS on the R2 bucket as well as on the API. |
-| API returns 401 | Supply a valid Supabase user access token in the Bearer header. |
-| Jest tries to run `dist/tests/*.js` | Keep Jest's `roots` restricted to `<rootDir>/src`. |
-| Jest cannot load the OpenRouter ES module | Run the integration script with `tsx`; the current Jest transform uses CommonJS. |
-| Sentry diagnostics-channel warning in Jest | Sentry initialization can warn under Jest; mock the Sentry config module in isolated unit tests if needed. |
-| Port 3000 is already in use | Stop the conflicting service or change the hardcoded port in `src/server.ts`. |
+| Symptom                                                 | What to check                                                                                                 |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `Invalid environment variables`                         | Fill every required variable in `.env`, including `GROQ_MODEL` and `SENTRY_DSN`. Run commands from `backend`. |
+| PostgreSQL connection or migration failure              | Check the host, credentials, SSL configuration, network access, and pgvector availability.                    |
+| Redis connection refused                                | Start Redis and verify `REDIS_URL` from both API and worker environments.                                     |
+| Documents stay queued                                   | Start the worker and ensure it uses the same Redis instance as the API.                                       |
+| Document status becomes `failed` with `not implemented` | Implement the ingestion helper stubs; credentials alone do not complete the pipeline.                         |
+| Browser API request blocked by CORS                     | Set `FRONTEND_URL` to the browser's exact origin and restart the API.                                         |
+| Browser upload to R2 blocked by CORS                    | Configure CORS on the R2 bucket as well as on the API.                                                        |
+| API returns 401                                         | Supply a valid Supabase user access token in the Bearer header.                                               |
+| Jest tries to run `dist/tests/*.js`                     | Keep Jest's `roots` restricted to `<rootDir>/src`.                                                            |
+| Jest cannot load the OpenRouter ES module               | Run the integration script with `tsx`; the current Jest transform uses CommonJS.                              |
+| Sentry diagnostics-channel warning in Jest              | Sentry initialization can warn under Jest; mock the Sentry config module in isolated unit tests if needed.    |
+| Port 3000 is already in use                             | Stop the conflicting service or change the hardcoded port in `src/server.ts`.                                 |
