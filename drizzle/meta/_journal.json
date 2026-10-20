@@ -36,6 +36,20 @@
       "when": 1791480723093,
       "tag": "0004_ambitious_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792510069559,
+      "tag": "0005_glorious_blackheart",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792510434518,
+      "tag": "0006_red_psylocke",
+      "breakpoints": true
     }
   ]
 }

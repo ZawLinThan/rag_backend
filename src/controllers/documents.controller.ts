@@ -108,6 +108,12 @@ export const ingestPipeline = async (req: Request, res: Response) => {
   } = req.body as ConfirmFileUploadReq;
 
   try {
+    // Presigned uploads are namespaced as `<userId>/...`. Do not allow a
+    // different authenticated user to confirm and ingest an existing object.
+    if (r2Key.split("/", 1)[0] !== userId) {
+      return res.status(404).json({ error: "Uploaded file not found" });
+    }
+
     // verify if the file exists in R2 or not
     await s3.send(
       new HeadObjectCommand({
@@ -126,11 +132,16 @@ export const ingestPipeline = async (req: Request, res: Response) => {
         r2Key,
         fileType,
         fileSize,
-        courseId,
-        notebookId,
+        courseId: 'a831ba44-a7c1-4ecf-97dc-c46b1fb223fc',
+        notebookId: '3eda7cc1-e111-486f-8c9e-a5475f4a55e8',
         status: "pending",
       })
       .returning();
+    // testing purpose
+    return res.status(202).json({
+      documentId: document.id,
+      status: "queued",
+    });
     // process document
     try {
       await documentQueue.add(

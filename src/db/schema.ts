@@ -56,7 +56,7 @@ export const documents = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     originalName: varchar("original_name", { length: 255 }).notNull(),
     r2Key: varchar("r2_key", { length: 500 }).notNull(),
-    fileType: varchar("file_type", { length: 50 }).notNull(), // pdf | docx | txt
+    fileType: varchar("file_type", { length: 250 }).notNull(), // pdf | docx | txt
     fileSize: integer("file_size").notNull(),
     status: text("status").$type<DocumentStatus>().default("pending").notNull(),
     errorMessage: text("error_message"),
