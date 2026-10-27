@@ -3,9 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { courses, notebooks } from "../db/schema.js";
 import { Sentry } from "../config/sentry.js";
-
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+import z from "zod";
 
 /**
  * GET /api/notebooks?courseId=...
@@ -32,7 +30,7 @@ export const getAllNotebooks = async (
         const raw = req.query.courseId;
         const courseId = typeof raw === "string" ? raw : undefined;
 
-        if (raw != undefined && (!courseId || !UUID_RE.test(courseId))) {
+        if (raw != undefined && (!courseId || !z.uuid().safeParse(courseId).success)) {
             res.status(400).json({error: "courseId must be a valid UUID."});
             return;
             }
@@ -90,7 +88,7 @@ export const createNotebook = async (
 
         const { courseId, noteBookName } = req.body ?? {};
 
-        if (typeof courseId !== "string" || !UUID_RE.test(courseId)) {
+        if (typeof courseId !== "string" || !z.uuid().safeParse(courseId).success) {
             res.status(400).json({ error: "courseId must be a valid UUID." });
             return;
         }
