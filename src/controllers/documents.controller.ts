@@ -132,8 +132,8 @@ export const ingestPipeline = async (req: Request, res: Response) => {
         r2Key,
         fileType,
         fileSize,
-        courseId: 'a831ba44-a7c1-4ecf-97dc-c46b1fb223fc',
-        notebookId: '3eda7cc1-e111-486f-8c9e-a5475f4a55e8',
+        courseId,
+        notebookId,
         status: "pending",
       })
       .returning();

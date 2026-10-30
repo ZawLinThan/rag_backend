@@ -19,7 +19,7 @@ export type ChatRequest<T> = {
 /**
  * Supported AI provider identifiers.
  */
-export type Provider = "groq" | "openrouter"; // add here if more AI's are added
+export type Provider = "groq" | "openrouter" | "openrouter embedding"; // add here if more AI's are added
 
 export type GetPresignedUrlReq = {
   fileName: string;
@@ -35,4 +35,15 @@ export type ConfirmFileUploadReq = {
   fileSize: number;
   courseId: string;
   notebookId: string;
+};
+
+export type RetrievedChunk = {
+  chunkId: string;
+  documentId: string;
+  documentName: string;
+  content: string;
+  chunkIndex: number;
+  pageNumber: number | null;
+  tokenCount: number | null;
+  score: number;
 };

@@ -7,10 +7,15 @@ import {
   chatSessionDocuments,
   messages,
   documents,
+  messageSources,
 } from "../db/schema.js";
 import { z } from "zod";
-import { parsePgNestedArray } from "drizzle-orm/pg-core";
-import { tryCatch } from "bullmq";
+import {
+  retrieveForSession,
+  RetrievalSessionNotFoundError,
+} from "../services/retrieval.service.js";
+import { embedText } from "../config/openRouterAI.js";
+import { generateAnswer } from "../services/answer.service.js";
 
 /**
  * @description Create a new chat session with 1+ documents. This will create a new chat session in the database and return the session ID.
@@ -152,8 +157,8 @@ export const getSingleChatSession = async (req: Request, res: Response) => {
   const userId = req.user?.id;
   if (!userId) {
     res.status(401).json({
-      error: "Unauthorized user"
-    })
+      error: "Unauthorized user",
+    });
     return;
   }
 
@@ -161,8 +166,8 @@ export const getSingleChatSession = async (req: Request, res: Response) => {
 
   if (!result.success) {
     res.status(400).json({
-      error: "Invalid session id"
-    })
+      error: "Invalid session id",
+    });
     return;
   }
 
@@ -173,16 +178,13 @@ export const getSingleChatSession = async (req: Request, res: Response) => {
       .select()
       .from(chatSessions)
       .where(
-          and(
-            eq(chatSessions.id,reqSessionId),
-            eq(chatSessions.userId, userId),
-        ),
+        and(eq(chatSessions.id, reqSessionId), eq(chatSessions.userId, userId)),
       );
-        
+
     if (!reqChatSession) {
       res.status(404).json({
-        error:"Chat session not found"
-      })
+        error: "Chat session not found",
+      });
       return;
     }
 
@@ -194,12 +196,12 @@ export const getSingleChatSession = async (req: Request, res: Response) => {
 
     res.status(200).json({
       ...reqChatSession,
-      messages:chatSessionMessages
+      messages: chatSessionMessages,
     });
   } catch (error) {
     res.status(500).json({
-      error:"Failed to retrieve chat session"
-    })
+      error: "Failed to retrieve chat session",
+    });
   }
 };
 
@@ -212,3 +214,92 @@ export const getSingleChatSession = async (req: Request, res: Response) => {
  * @returns void
  */
 export const deleteChatSession = async (req: Request, res: Response) => {};
+
+/**
+ * @description Answer a question using the session ID and the message from the request body
+ * EndPoint: POST /chat/sessions/:id/messages
+ *
+ * @param req - Express Request object
+ * @param res - Express Response object
+ */
+export const answerQuestion = async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const sessionId = z.uuid().safeParse(req.params.id);
+  const body = z
+    .object({ message: z.string().trim().min(1).max(8000) })
+    .safeParse(req.body);
+
+  if (!sessionId.success || !body.success) {
+    res.status(400).json({ error: "Invalid session ID or message" });
+    return;
+  }
+
+  try {
+    const chunks = await retrieveForSession({
+      userId,
+      sessionId: sessionId.data,
+      question: body.data.message,
+      embedQuery: embedText,
+    });
+
+    const answer = await generateAnswer(body.data.message, chunks);
+
+    // Save the complete exchange and cited chunks atomically after generation succeeds.
+    const saved = await db.transaction(async (tx) => {
+      const [userMessage] = await tx
+        .insert(messages)
+        .values({
+          sessionId: sessionId.data,
+          role: "user",
+          content: body.data.message,
+        })
+        .returning();
+
+      const [assistantMessage] = await tx
+        .insert(messages)
+        .values({
+          sessionId: sessionId.data,
+          role: "assistant",
+          content: answer.answer,
+        })
+        .returning();
+
+      if (answer.sources.length) {
+        await tx.insert(messageSources).values(
+          answer.sources.map((source) => ({
+            messageId: assistantMessage.id,
+            chunkId: source.chunkId,
+            score: source.score,
+          })),
+        );
+      }
+
+      await tx
+        .update(chatSessions)
+        .set({ updatedAt: new Date() })
+        .where(
+          and(
+            eq(chatSessions.id, sessionId.data),
+            eq(chatSessions.userId, userId),
+          ),
+        );
+
+      return { userMessage, assistantMessage };
+    });
+    res.status(201).json({ ...saved, ...answer });
+  } catch (error) {
+    if (error instanceof RetrievalSessionNotFoundError) {
+      res.status(404).json({ error: "Chat session not found" });
+      return;
+    }
+
+    Sentry.captureException(error, { tags: { area: "chat-answer" } });
+    res.status(500).json({ error: "Failed to answer question" });
+  }
+};

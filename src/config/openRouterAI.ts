@@ -187,7 +187,44 @@ export const chatStructured = async <T>(props: ChatRequest<T>): Promise<T> => {
       correction = validation;
     }
   }
+  throw new ModelOutputError("The model could not produce valid data.");
+};
+
+/**
+ * @description Embed Text function
+ *
+ * @param text - the text to be embedded
+ * @returns Embedded number array for the text
+ * @throws {ModelOutputError} If the model cannot produce Number[] array
+ */
+export const embedText = async (text: string): Promise<number[]> => {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const embedding = await openrouter.embeddings.generate({
+        requestBody: {
+          model: env.EMBEDDING_MODEL,
+          input: text,
+          encodingFormat: "float",
+        },
+      });
+      //console.log(embedding.data[0].embedding.length);
+
+      // Reject unexpected SDK response variants before reading the vector.
+      if (
+        typeof embedding === "string" ||
+        !Array.isArray(embedding.data?.[0]?.embedding)
+      ) {
+        throw new ModelOutputError(
+          "The embedding response contained no vector.",
+        );
+      }
+      return embedding.data[0].embedding;
+    } catch (error) {
+      tagProviderError(error, "openrouter embedding");
+    }
+  }
+
   throw new ModelOutputError(
-    "The model could not produce valid research data.",
+    "The embedding model could not produce valid data.",
   );
 };

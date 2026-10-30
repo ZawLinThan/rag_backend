@@ -8,7 +8,7 @@ import {
   notebooks,
   type Course,
 } from "../db/schema.js";
-import {z} from "zod"; 
+import { z } from "zod";
 
 const serializeCourse = (course: Course) => ({
   ...course,

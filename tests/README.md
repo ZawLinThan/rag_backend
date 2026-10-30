@@ -6,20 +6,21 @@ Configure environment variables
 cp .env.test.example .env.test
 ```
 
-Input the following dummy data to Supabase's user for testing purpose. 
+Input the following dummy data to Supabase's user for testing purpose.
 
 email: test-user-1@example.com
 password: "test-password"
 
 email: test-user-2@example.com
-password: test-password
+password: "test-password"
 
-Run 
-``` sh
+Run
+
+```sh
 npx tsx tests/helpers/getAuthToken.ts
 ```
-The tokens from the console are to be put in .env.test. Also create the Course and NoteBook dummy in Supabase table and add them to .env.test
 
+The tokens from the console are to be put in .env.test. Also create the Course and NoteBook dummy in Supabase table and add them to .env.test
 
 These Jest tests call HTTP endpoints without importing backend source, mocking
 controllers, or assuming database/queue implementation details. Expected behavior

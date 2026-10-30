@@ -89,7 +89,7 @@ export const chunks = pgTable(
     chunkIndex: integer("chunk_index").notNull(),
     pageNumber: integer("page_number"),
     tokenCount: integer("token_count"),
-    embedding: vector("embedding", { dimensions: 1536 } as any),
+    embedding: vector("embedding", { dimensions: 2048 } as any),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     // fk: userId -> auth.users(id), handled by supabase
   },
