@@ -8,9 +8,7 @@ import {
   notebooks,
   type Course,
 } from "../db/schema.js";
-
-const uuidPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+import {z} from "zod"; 
 
 const serializeCourse = (course: Course) => ({
   ...course,
@@ -145,7 +143,7 @@ export const getCourseById = async (
   }
 
   const courseID = req.params.id;
-  if (typeof courseID !== "string" || !uuidPattern.test(courseID)) {
+  if (typeof courseID !== "string" || !z.uuid().safeParse(courseID).success) {
     res.status(400).json({ error: "Invalid course ID" });
     return;
   }
@@ -188,7 +186,7 @@ export const deleteCourse = async (
   }
 
   const courseID = req.params.id;
-  if (typeof courseID !== "string" || !uuidPattern.test(courseID)) {
+  if (typeof courseID !== "string" || !z.uuid().safeParse(courseID).success) {
     res.status(400).json({ error: "Invalid course ID" });
     return;
   }
