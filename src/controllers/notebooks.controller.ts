@@ -37,7 +37,6 @@ export const getAllNotebooks = async (
       res.status(400).json({ error: "courseId must be a valid UUID." });
       return;
     }
-
     if (courseId) {
       const [course] = await db
         .select({ id: courses.id })
@@ -91,7 +90,7 @@ export const createNotebook = async (
     }
 
     const { courseId, noteBookName } = req.body ?? {};
-
+    console.log("BODY", courseId, noteBookName)
     if (typeof courseId !== "string" || !z.uuid().safeParse(courseId).success) {
       res.status(400).json({ error: "courseId must be a valid UUID." });
       return;

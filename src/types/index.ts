@@ -37,13 +37,3 @@ export type ConfirmFileUploadReq = {
   notebookId: string;
 };
 
-export type RetrievedChunk = {
-  chunkId: string;
-  documentId: string;
-  documentName: string;
-  content: string;
-  chunkIndex: number;
-  pageNumber: number | null;
-  tokenCount: number | null;
-  score: number;
-};

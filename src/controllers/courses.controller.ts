@@ -79,17 +79,17 @@ export const createCourse = async (
 
   const body = req.body as Record<string, unknown>;
   const name = typeof body.name === "string" ? body.name.trim() : undefined;
-  const code = typeof body.code === "string" ? body.code.trim() : undefined;
+  const code = typeof body.code === "string" ? body.code.trim() || null : null;
   const semester =
-    typeof body.semester === "string" ? body.semester.trim() : undefined;
+    typeof body.semester === "string" ? body.semester.trim() || null : null;
 
   if (
     !name ||
-    !code ||
-    !semester ||
     name.length > 255 ||
-    code.length > 50 ||
-    semester.length > 50
+    (body.code != null && typeof body.code !== "string") ||
+    (body.semester != null && typeof body.semester !== "string") ||
+    (code !== null && code.length > 50) ||
+    (semester !== null && semester.length > 50)
   ) {
     res.status(400).json({ error: "Invalid course data" });
     return;
@@ -105,7 +105,6 @@ export const createCourse = async (
       res.status(500).json({ error: "Failed to create course" });
       return;
     }
-
     res.status(201).json(serializeCourse(course));
   } catch (error) {
     if (

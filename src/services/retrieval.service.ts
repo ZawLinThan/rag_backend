@@ -15,7 +15,17 @@ import {
   chunks,
   documents,
 } from "../db/schema.js";
-import { RetrievedChunk } from "../types/index.js";
+
+type RetrievedChunk = {
+  chunkId: string;
+  documentId: string;
+  documentName: string;
+  content: string;
+  chunkIndex: number;
+  pageNumber: number | null;
+  tokenCount: number | null;
+  score: number;
+};
 
 /** Embedding dimension (must be the same as ingestion)*/
 export const EMBEDDING_DIMENSIONS = 2048;
