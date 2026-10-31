@@ -78,6 +78,4 @@ export const getTestContent = async (
 export const deleteSingleTest = async (
   req: Request,
   res: Response,
-): Promise<void> => {
-  
-};
+): Promise<void> => {};
