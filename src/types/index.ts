@@ -36,4 +36,3 @@ export type ConfirmFileUploadReq = {
   courseId: string;
   notebookId: string;
 };
-

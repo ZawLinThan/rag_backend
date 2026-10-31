@@ -14,7 +14,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "commit": "npm run format && jest && tsc --noEmit && tsc && eslint ."
+    "commit": "npm run format && jest && tsc --noEmit && tsc && eslint .",
+    "export:contracts": "node scripts/export-contracts.mjs"
   },
   "keywords": [],
   "author": "",
