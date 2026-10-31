@@ -245,3 +245,37 @@ export const deleteCourse = async (
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+/** PATCH /api/courses/:id — rename an owned course. */
+export const renameCourse = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const id = z.uuid().safeParse(req.params.id);
+  const body = z
+    .object({ name: z.string().trim().min(1).max(255) })
+    .safeParse(req.body);
+  if (!id.success || !body.success) {
+    res.status(400).json({ error: "Invalid course ID or name" });
+    return;
+  }
+  try {
+    const [course] = await db
+      .update(courses)
+      .set({ name: body.data.name, updatedAt: new Date() })
+      .where(and(eq(courses.id, id.data), eq(courses.userId, userId)))
+      .returning();
+    if (!course) {
+      res.status(404).json({ error: "Course not found" });
+      return;
+    }
+    res.status(200).json(serializeCourse(course));
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
