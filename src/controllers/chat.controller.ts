@@ -1,13 +1,14 @@
 import type { Request, Response } from "express";
 import { db } from "../db/index.js";
 import { Sentry } from "../config/sentry.js";
-import { asc, eq, inArray, and } from "drizzle-orm";
+import { asc, eq, inArray, and, sql } from "drizzle-orm";
 import {
   chatSessions,
   chatSessionDocuments,
   messages,
   documents,
   messageSources,
+  chunks,
 } from "../db/schema.js";
 import { z } from "zod";
 import {
@@ -48,7 +49,7 @@ export const createNewChatSession = async (req: Request, res: Response) => {
     const uniqueDocumentIds = [...new Set(documentIds)];
 
     const ownedDocuments = await db
-      .select({ id: documents.id })
+      .select({ id: documents.id, status: documents.status })
       .from(documents)
       .where(
         and(
@@ -61,6 +62,11 @@ export const createNewChatSession = async (req: Request, res: Response) => {
       res.status(404).json({
         error: "One or more documents were not found",
       });
+      return;
+    }
+
+    if (ownedDocuments.some((document) => document.status !== "ready")) {
+      res.status(409).json({ error: "All selected documents must be ready" });
       return;
     }
 
@@ -84,7 +90,8 @@ export const createNewChatSession = async (req: Request, res: Response) => {
       sessionId: session.id,
     });
   } catch (error) {
-    res.status(404).json({
+    Sentry.captureException(error, { tags: { area: "chat-session-create" } });
+    res.status(500).json({
       error: "Failed to create new chat session",
     });
   }
@@ -192,11 +199,56 @@ export const getSingleChatSession = async (req: Request, res: Response) => {
       .select()
       .from(messages)
       .where(eq(messages.sessionId, reqSessionId))
-      .orderBy(asc(messages.createdAt));
+      .orderBy(
+        asc(messages.createdAt),
+        sql`case when ${messages.role} = 'user' then 0 else 1 end`,
+        asc(messages.id),
+      );
+
+    const sessionDocuments = await db
+      .select({ id: documents.id })
+      .from(chatSessionDocuments)
+      .innerJoin(documents, eq(documents.id, chatSessionDocuments.documentId))
+      .where(
+        and(
+          eq(chatSessionDocuments.sessionId, reqSessionId),
+          eq(documents.userId, userId),
+        ),
+      );
+
+    const messageIds = chatSessionMessages.map((message) => message.id);
+    const citedSources =
+      messageIds.length === 0
+        ? []
+        : await db
+            .select({
+              messageId: messageSources.messageId,
+              chunkId: chunks.id,
+              documentId: documents.id,
+              documentName: documents.name,
+              pageNumber: chunks.pageNumber,
+              content: chunks.content,
+              score: messageSources.score,
+            })
+            .from(messageSources)
+            .innerJoin(chunks, eq(chunks.id, messageSources.chunkId))
+            .innerJoin(documents, eq(documents.id, chunks.documentId))
+            .where(
+              and(
+                inArray(messageSources.messageId, messageIds),
+                eq(documents.userId, userId),
+              ),
+            );
 
     res.status(200).json({
       ...reqChatSession,
-      messages: chatSessionMessages,
+      documentIds: sessionDocuments.map((document) => document.id),
+      messages: chatSessionMessages.map((message) => ({
+        ...message,
+        sources: citedSources.filter(
+          (source) => source.messageId === message.id,
+        ),
+      })),
     });
   } catch (error) {
     res.status(500).json({

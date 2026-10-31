@@ -8,6 +8,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3 } from "../config/r2.js";
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
@@ -16,12 +17,14 @@ import {
   chatSessionDocuments,
   documents,
   flashcardSets,
+  notebooks,
   tests,
 } from "../db/schema.js";
 import { and, desc, eq } from "drizzle-orm";
 import { documentQueue } from "../queue/document.queue.js";
 import { updateDocumentStatus } from "../services/ingest.service.js";
 import { Sentry } from "../config/sentry.js";
+import { z } from "zod";
 /**
  * @description Controller function to generate a presigned URL for uploading a file to S3.
  * File size limit is 20MB. Presigned URL expires in 3600 seconds.
@@ -190,7 +193,7 @@ export const ingestPipeline = async (req: Request, res: Response) => {
 /**
  * GET /api/documents
  * List all owned document metadata and ingestion states.
- * No body.
+ * Optional query parameter notebookId filters to an owned notebook.
  * Response: 200 Document[] Serialize dates as ISO strings with no envelope.
  * Errors: { error: string } with 400 validation, 401 authentication,
  * 404 missing/ownership, 409 conflict, or 500 unexpected failure.
@@ -209,11 +212,41 @@ export const getAllDocuments = async (
     return;
   }
 
+  const rawNotebookId = req.query?.notebookId;
+  if (
+    rawNotebookId !== undefined &&
+    (typeof rawNotebookId !== "string" ||
+      !z.uuid().safeParse(rawNotebookId).success)
+  ) {
+    res.status(400).json({ error: "notebookId must be a valid UUID" });
+    return;
+  }
+
   try {
+    if (typeof rawNotebookId === "string") {
+      const [notebook] = await db
+        .select({ id: notebooks.id })
+        .from(notebooks)
+        .where(
+          and(eq(notebooks.id, rawNotebookId), eq(notebooks.userId, userId)),
+        )
+        .limit(1);
+      if (!notebook) {
+        res.status(404).json({ error: "Notebook not found" });
+        return;
+      }
+    }
     const ownedDocuments = await db
       .select()
       .from(documents)
-      .where(eq(documents.userId, userId))
+      .where(
+        typeof rawNotebookId === "string"
+          ? and(
+              eq(documents.userId, userId),
+              eq(documents.notebookId, rawNotebookId),
+            )
+          : eq(documents.userId, userId),
+      )
       .orderBy(desc(documents.createdAt));
 
     // The documented contract returns the document array directly, not an envelope.
@@ -280,6 +313,47 @@ export const getSingleDocument = async (
     });
     console.error("Error fetching document:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/** Return the original file only to its owner for in-browser preview. */
+export const getDocumentFile = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const userId = req.user?.id;
+  const id = req.params.id;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  if (typeof id !== "string" || !z.uuid().safeParse(id).success) {
+    res.status(400).json({ error: "Invalid document ID" });
+    return;
+  }
+  try {
+    const [document] = await db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.id, id), eq(documents.userId, userId)))
+      .limit(1);
+    if (!document) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+    const object = await s3.send(
+      new GetObjectCommand({ Bucket: env.R2_BUCKET_NAME, Key: document.r2Key }),
+    );
+    if (!object.Body) throw new Error("Document file has no body");
+    const bytes = await object.Body.transformToByteArray();
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.status(200).send(Buffer.from(bytes));
+  } catch (error) {
+    Sentry.captureException(error, { tags: { area: "document-file" } });
+    console.error("Error fetching document file:", error);
+    res.status(500).json({ error: "Failed to retrieve document file" });
   }
 };
 
@@ -399,4 +473,42 @@ export const deleteDocument = async (
 export const editDocument = async (
   req: Request,
   res: Response,
-): Promise<void> => {};
+): Promise<void> => {
+  const userId = req.user?.id;
+  const { id } = req.params as { id: string };
+
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  if (!id) {
+    res.status(400).json({ error: "Document ID is required" });
+    return;
+  }
+
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  if (!name || name.length > 255) {
+    res.status(400).json({ error: "Invalid document name" });
+    return;
+  }
+
+  try {
+    const [document] = await db
+      .update(documents)
+      .set({ name, updatedAt: new Date() })
+      .where(and(eq(documents.id, id), eq(documents.userId, userId)))
+      .returning();
+
+    if (!document) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
+    res.status(200).json(document);
+  } catch (error) {
+    Sentry.captureException(error, { tags: { area: "document-edit" } });
+    console.error("Error editing document:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
