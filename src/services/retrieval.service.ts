@@ -21,7 +21,6 @@ import { RetrievedChunk } from "../types/index.js";
 export const EMBEDDING_DIMENSIONS = 2048;
 export type EmbedQuery = (question: string) => Promise<number[]>;
 
-
 const questionSchema = z.string().trim().min(1).max(8000);
 const topKSchema = z.number().int().min(1).max(50);
 const scoreSchema = z.number().finite().min(-1).max(1);
@@ -187,3 +186,4 @@ export const retrieveForSession = async (options: {
     minScore: options.minScore,
   });
 };
+export { RetrievedChunk };

@@ -46,6 +46,6 @@ export const generateAnswer = async (
       throw new ModelOutputError("The answer cited an unknown source.");
     return source;
   });
-  
+
   return { answer: result.answer, sources };
 };
