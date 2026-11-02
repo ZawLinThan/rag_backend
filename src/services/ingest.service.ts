@@ -1,10 +1,15 @@
 import type { Job } from "bullmq";
+import OpenAI from "openai";
 import { db } from "../db/index.js";
-import { documents } from "../db/schema.js";
+import { chunks as chunksTable, documents } from "../db/schema.js";
 import type { Document, DocumentStatus, NewChunk } from "../db/schema.js";
 import type { DocumentJob } from "../queue/document.queue.js";
 import { eq } from "drizzle-orm";
+import { env } from "../config/env.js";
 import { Sentry } from "../config/sentry.js";
+import { PermanentError } from "../lib/errors.js";
+import { beforeProviderCall } from "../lib/providerCalls.js";
+import { scheduleProviderRequest } from "../lib/providerRateLimit.js";
 
 type TextChunk = Pick<
   NewChunk,
@@ -14,6 +19,26 @@ type TextChunk = Pick<
 type EmbeddedChunk = TextChunk & {
   embedding: NonNullable<NewChunk["embedding"]>;
 };
+
+/** Embedding model served through OpenRouter; 1536 dims, matching chunks.embedding. */
+const EMBEDDING_MODEL = "openai/text-embedding-3-small";
+
+/** Vector width the chunks table expects. */
+const EMBEDDING_DIMENSIONS = 1536;
+
+/** Inputs per embeddings request. */
+const EMBEDDING_BATCH_SIZE = 96;
+
+/** Rows per insert statement. */
+const INSERT_BATCH_SIZE = 100;
+
+/** OpenRouter's embeddings API, which is OpenAI-compatible. */
+const embeddingClient = new OpenAI({
+  apiKey: env.OPENROUTER_API_KEY,
+  baseURL: "https://openrouter.ai/api/v1",
+  timeout: 60000,
+  maxRetries: 0,
+});
 
 // Download the document's bytes from R2.
 const downloadFromR2 = async (_r2Key: string): Promise<Buffer> => {
@@ -35,18 +60,94 @@ const chunkText = (_text: string): TextChunk[] => {
 
 // Associate each chunk with its embedding vector.
 const embedChunks = async (
-  _chunks: readonly TextChunk[],
+  textChunks: readonly TextChunk[],
 ): Promise<EmbeddedChunk[]> => {
-  throw new Error("embedChunks is not implemented");
+  if (textChunks.length === 0) return [];
+
+  const embedded: EmbeddedChunk[] = [];
+
+  for (
+    let start = 0;
+    start < textChunks.length;
+    start += EMBEDDING_BATCH_SIZE
+  ) {
+    const batch = textChunks.slice(start, start + EMBEDDING_BATCH_SIZE);
+    const estimatedTokens = batch.reduce(
+      (total, chunk) => total + Math.ceil(chunk.content.length / 4),
+      0,
+    );
+
+    const response = await scheduleProviderRequest(
+      "openrouter",
+      estimatedTokens,
+      async () => {
+        await beforeProviderCall();
+        return embeddingClient.embeddings.create({
+          model: EMBEDDING_MODEL,
+          input: batch.map((chunk) => chunk.content),
+        });
+      },
+    );
+
+    if (response.data.length !== batch.length) {
+      throw new PermanentError(
+        `Embedding provider returned ${response.data.length} vectors for ${batch.length} inputs.`,
+      );
+    }
+
+    //Items carry their input index; do not assume response order.
+    for (const item of response.data) {
+      const chunk = batch[item.index];
+
+      if (!chunk) {
+        throw new PermanentError(
+          `Embedding response referenced unknown input index ${item.index}.`,
+        );
+      }
+
+      if (item.embedding.length !== EMBEDDING_DIMENSIONS) {
+        throw new PermanentError(
+          `Expected ${EMBEDDING_DIMENSIONS}-dimension embeddings, received ${item.embedding.length}.`,
+        );
+      }
+
+      embedded.push({ ...chunk, embedding: item.embedding });
+    }
+  }
+
+  return embedded.sort((a, b) => a.chunkIndex - b.chunkIndex);
 };
 
 // Store embedded chunks with their document and user ownership.
 const storeChunks = async (
-  _documentId: Document["id"],
-  _userId: Document["userId"],
-  _chunks: readonly EmbeddedChunk[],
+  documentId: Document["id"],
+  userId: Document["userId"],
+  embeddedChunks: readonly EmbeddedChunk[],
 ): Promise<void> => {
-  throw new Error("storeChunks is not implemented");
+  await db.transaction(async (tx) => {
+    // Clear rows from an earlier attempt; (documentID, chunkIndex) is unique.
+    await tx.delete(chunksTable).where(eq(chunksTable.documentId, documentId));
+
+    for (
+      let start = 0;
+      start < embeddedChunks.length;
+      start += INSERT_BATCH_SIZE
+    ) {
+      const rows: NewChunk[] = embeddedChunks
+        .slice(start, start + INSERT_BATCH_SIZE)
+        .map((chunk) => ({
+          documentId,
+          userId,
+          content: chunk.content,
+          chunkIndex: chunk.chunkIndex,
+          pageNumber: chunk.pageNumber,
+          tokenCount: chunk.tokenCount,
+          embedding: chunk.embedding,
+        }));
+
+      await tx.insert(chunksTable).values(rows);
+    }
+  });
 };
 
 /**
