@@ -1,6 +1,8 @@
 import {
+  boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   real,
@@ -58,6 +60,9 @@ export const documents = pgTable(
     r2Key: varchar("r2_key", { length: 500 }).notNull(),
     fileType: varchar("file_type", { length: 50 }).notNull(), // pdf | docx | txt
     fileSize: integer("file_size").notNull(),
+    // TODO(frontend): ask this at upload confirmation and persist the answer.
+    // Math PDFs use local MinerU; all other documents keep normal extraction.
+    hasMathFormula: boolean("has_math_formula").default(false).notNull(),
     status: text("status").$type<DocumentStatus>().default("pending").notNull(),
     errorMessage: text("error_message"),
     courseId: uuid("course_id").references(() => courses.id, {
@@ -235,6 +240,26 @@ export const tests = pgTable("tests", {
   // referenceFileId -> documentts(id)
 });
 
+export type TestQuestion = {
+  id: string;
+  prompt: string;
+  answer: string;
+  options: string[];
+};
+
+// Generated questions are kept separate from the test list metadata. This lets
+// POST /tests/generate return quickly with only the Test record, while the
+// client reads the potentially larger question payload from /:id/content.
+export const testContents = pgTable("test_contents", {
+  testId: uuid("test_id")
+    .primaryKey()
+    .references(() => tests.id, { onDelete: "cascade" }),
+  instructions: text("instructions").notNull(),
+  questions: jsonb("questions").$type<TestQuestion[]>().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export type Profile = typeof profiles.$inferSelect;
 export type NewProfile = typeof profiles.$inferInsert;
 
@@ -264,6 +289,9 @@ export type NewFlashcard = typeof flashcards.$inferInsert;
 
 export type Test = typeof tests.$inferSelect;
 export type NewTest = typeof tests.$inferInsert;
+
+export type TestContent = typeof testContents.$inferSelect;
+export type NewTestContent = typeof testContents.$inferInsert;
 
 export type NoteBook = typeof notebooks.$inferSelect;
 export type NewNoteBook = typeof notebooks.$inferInsert;

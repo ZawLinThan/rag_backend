@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "jest",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
     "test:api": "jest --config jest.api.config.ts --runInBand",
     "format": "npx prettier . --write",
     "dev": "tsx watch src/server.ts",
@@ -34,12 +34,15 @@
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
+    "fast-xml-parser": "^5.11.2",
     "groq-sdk": "^1.6.0",
     "ioredis": "^6.0.0",
+    "jszip": "^3.10.2",
     "lint": "^1.2.2",
     "openai": "^7.15.0",
     "postgres": "^3.4.9",
     "tsx": "^4.23.13",
+    "unpdf": "^1.9.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
