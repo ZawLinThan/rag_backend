@@ -54,19 +54,14 @@ make unimplemented handlers pass.
 
 Tests create uniquely named courses and flashcard sets and delete tracked resources
 after each test. Cleanup failures are reported. The supplied notebook/course are
-retained: no notebook deletion endpoint is documented. If confirmation fails
+retained as fixtures; notebook deletion is available but the suite does not delete them. If confirmation fails
 before returning an ID, a uploaded storage object may remain; use disposable
 storage and database fixtures. A broken ownership endpoint can also create a
 foreign-owned resource that the first user cannot clean up.
 
-Coverage: authentication on all registered protected endpoints; course CRUD and
-ownership; notebook filtering and ownership; manual flashcard CRUD and ownership;
-invalid generation inputs; missing resources; presign size boundary; real upload,
-async acceptance, status polling, document ownership, rename and deletion;
-flashcard generation from ready notes and notebook test generation/content/deletion.
+Coverage includes protected-route authentication, course creation/listing/deletion and ownership, notebook filtering and ownership, manual flashcard CRUD, invalid test generation input, presign size boundaries, and a real upload with async processing, ownership, rename and deletion. See the test files for exact cases.
 
-Reference-mode AI generation, worker retry/failure injection, notebook duplicate
-creation and authenticated chat CRUD are not covered yet. Chat response/input
+Flashcard generation, test generation/content/deletion, reference-mode AI generation, worker retry/failure injection, notebook duplicate creation and authenticated chat CRUD are not covered yet. Chat response/input
 schemas and a reproducible processing-failure fixture need specification.
 Black-box tests cannot inject queue failures without a public test-environment
 control. Existing ingestion stubs and empty handlers are expected to fail these
