@@ -50,6 +50,7 @@ R2_BUCKET_NAME=YOUR_R2_BUCKET_NAME
 
 GROQ_API_KEY=YOUR_GROQ_API_KEY
 GROQ_MODEL=YOUR_GROQ_MODEL_ID
+EMBEDDING_MODEL=YOUR_EMBEDDING_MODEL_ID
 OPENROUTER_API_KEY=YOUR_OPENROUTER_API_KEY
 
 REDIS_URL=redis://localhost:6379
@@ -73,6 +74,7 @@ Replace the uppercase placeholders. `.env` is ignored by Git.
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | R2 API credentials.                                                                                                                                |
 | `R2_BUCKET_NAME`                            | Bucket used for document uploads.                                                                                                                  |
 | `GROQ_API_KEY` / `GROQ_MODEL`               | Groq credentials and model ID used by `groqAI.ts`.                                                                                                 |
+| `EMBEDDING_MODEL`                           | Embedding model identifier used by retrieval; must be compatible with the configured vector dimensions.                                            |
 | `OPENROUTER_API_KEY`                        | OpenRouter credentials; the model is currently selected in `openRouterAI.ts`.                                                                      |
 | `REDIS_URL`                                 | Redis connection URL for queue producers and workers.                                                                                              |
 | `PROCESS_DOCUMENT_QUEUE`                    | Name of the submitted job, despite the variable's name. The actual BullMQ queue is hardcoded as `document-processing` in both producer and worker. |
@@ -90,7 +92,7 @@ Apply the committed migration history:
 npx drizzle-kit migrate
 ```
 
-The migrations create the application tables and include `CREATE EXTENSION IF NOT EXISTS vector`. The database must have pgvector installed and the migration user must be able to enable it. Chunk embeddings use 1,536 dimensions.
+The migrations create the application tables and include `CREATE EXTENSION IF NOT EXISTS vector`. The database must have pgvector installed and the migration user must be able to enable it. The current schema and latest migration use 2,048-dimensional chunk embeddings.
 
 If extension creation fails due to permissions, enable `vector` with an administrative account in the target database before retrying:
 
@@ -194,12 +196,12 @@ Independent HTTP acceptance tests live under `tests/`. See [tests/README.md](tes
 for the test server, user-token and fixture setup, then run `npm run test:api`.
 This suite includes real uploads and async ingestion polling and uses no backend implementation imports.
 
-Jest runs tests under `src` and excludes compiled tests in `dist`. Its relative `.js` import mapping resolves TypeScript source files. Unit tests mock Supabase authentication but still need valid environment configuration for other imported modules.
+Jest runs unit tests under `src` and `tests` and excludes the separate API suite and compiled tests in `dist`. Its relative `.js` import mapping resolves TypeScript source files. Unit tests mock Supabase authentication but still need valid environment configuration for other imported modules.
 
 Run the OpenRouter integration script separately:
 
 ```sh
-npx tsx src/tests/openRouter.integration.ts
+npx tsx tests/unit/openRouter.integration.ts
 ```
 
 This script makes a real API request and requires working OpenRouter credentials and an available model. It is not a Jest unit test.
@@ -233,24 +235,24 @@ Provide environment variables to both processes, or keep `.env` in their working
 | `drizzle/`                         | SQL migrations and migration metadata.                                                  |
 | `src/queue/` / `src/workers/`      | BullMQ producer and document worker.                                                    |
 | `src/services/`                    | Ingestion and retrieval pipeline scaffolding.                                           |
-| `src/tests/`                       | Unit tests and the standalone OpenRouter integration script.                            |
+| `tests/`                           | Unit and API tests and the standalone OpenRouter integration script.                    |
 | `.github/workflows/basic.yml`      | CI dependency installation, type check, tests, and build with dummy environment values. |
 
 The API registers route groups at `/api/courses`, `/api/notebooks`, `/api/documents`, `/api/chat`, `/api/flashcards`, and `/api/tests`. Consult the route and controller files for implemented endpoints and request types; registration alone does not mean a handler is complete.
 
 ## Troubleshooting
 
-| Symptom                                                 | What to check                                                                                                 |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `Invalid environment variables`                         | Fill every required variable in `.env`, including `GROQ_MODEL` and `SENTRY_DSN`. Run commands from `backend`. |
-| PostgreSQL connection or migration failure              | Check the host, credentials, SSL configuration, network access, and pgvector availability.                    |
-| Redis connection refused                                | Start Redis and verify `REDIS_URL` from both API and worker environments.                                     |
-| Documents stay queued                                   | Start the worker and ensure it uses the same Redis instance as the API.                                       |
-| Document status becomes `failed` with `not implemented` | Implement the ingestion helper stubs; credentials alone do not complete the pipeline.                         |
-| Browser API request blocked by CORS                     | Set `FRONTEND_URL` to the browser's exact origin and restart the API.                                         |
-| Browser upload to R2 blocked by CORS                    | Configure CORS on the R2 bucket as well as on the API.                                                        |
-| API returns 401                                         | Supply a valid Supabase user access token in the Bearer header.                                               |
-| Jest tries to run `dist/tests/*.js`                     | Keep Jest's `roots` restricted to `<rootDir>/src`.                                                            |
-| Jest cannot load the OpenRouter ES module               | Run the integration script with `tsx`; the current Jest transform uses CommonJS.                              |
-| Sentry diagnostics-channel warning in Jest              | Sentry initialization can warn under Jest; mock the Sentry config module in isolated unit tests if needed.    |
-| Port 3000 is already in use                             | Stop the conflicting service or change the hardcoded port in `src/server.ts`.                                 |
+| Symptom                                                 | What to check                                                                                                                     |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `Invalid environment variables`                         | Fill every required variable in `.env`, including `GROQ_MODEL`, `EMBEDDING_MODEL`, and `SENTRY_DSN`. Run commands from `backend`. |
+| PostgreSQL connection or migration failure              | Check the host, credentials, SSL configuration, network access, and pgvector availability.                                        |
+| Redis connection refused                                | Start Redis and verify `REDIS_URL` from both API and worker environments.                                                         |
+| Documents stay queued                                   | Start the worker and ensure it uses the same Redis instance as the API.                                                           |
+| Document status becomes `failed` with `not implemented` | Implement the ingestion helper stubs; credentials alone do not complete the pipeline.                                             |
+| Browser API request blocked by CORS                     | Set `FRONTEND_URL` to the browser's exact origin and restart the API.                                                             |
+| Browser upload to R2 blocked by CORS                    | Configure CORS on the R2 bucket as well as on the API.                                                                            |
+| API returns 401                                         | Supply a valid Supabase user access token in the Bearer header.                                                                   |
+| Jest tries to run `dist/tests/*.js`                     | Keep Jest's `roots` restricted to source and test directories, excluding `dist`.                                                  |
+| Jest cannot load the OpenRouter ES module               | Run the integration script with `tsx`; the current Jest transform uses CommonJS.                                                  |
+| Sentry diagnostics-channel warning in Jest              | Sentry initialization can warn under Jest; mock the Sentry config module in isolated unit tests if needed.                        |
+| Port 3000 is already in use                             | Stop the conflicting service or change the hardcoded port in `src/server.ts`.                                                     |
