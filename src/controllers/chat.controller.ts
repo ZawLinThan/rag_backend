@@ -258,16 +258,6 @@ export const getSingleChatSession = async (req: Request, res: Response) => {
 };
 
 /**
- * @description Delete a chat session by its ID from the database. This will delete the chat session and all its messages.
- * EndPoint: DELETE /chat/sessions/:id
- *
- * @param req - Express Request object
- * @param res - Express Response object
- * @returns void
- */
-export const deleteChatSession = async (req: Request, res: Response) => {};
-
-/**
  * @description Answer a question using the session ID and the message from the request body
  * EndPoint: POST /chat/sessions/:id/messages
  *
@@ -353,5 +343,51 @@ export const answerQuestion = async (req: Request, res: Response) => {
 
     Sentry.captureException(error, { tags: { area: "chat-answer" } });
     res.status(500).json({ error: "Failed to answer question" });
+  }
+};
+
+/**
+ * @description Delete a chat session by its ID from the database. This will delete the chat session and all its messages.
+ * EndPoint: DELETE /chat/sessions/:id
+ *
+ * @param req - Express Request object
+ * @param res - Express Response object
+ * @returns void
+ */
+export const deleteChatSession = async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({error: "Unauthorized user"});
+    return;
+  }
+
+  const result = z.uuid().safeParse(req.params.id);
+
+  if (!result.success) {
+    res.status(400).json({error: "Invalid sesion id"});
+    return;
+  }
+
+  const sessionId = result.data;
+
+  try {
+    const [deletedSession] = await db
+      .delete(chatSessions)
+      .where(
+        and(
+          eq(chatSessions.id, sessionId),
+          eq(chatSessions.userId, userId),
+        ),
+      )
+      .returning({id: chatSessions.id})
+
+    if (!deletedSession) {
+      res.status(404).json({error: "Chat session not found"});
+      return;
+    }
+
+    res.status(204).send();
+  } catch (error){
+    res.status(500).json({error: "Failed to delete chat session"});
   }
 };
