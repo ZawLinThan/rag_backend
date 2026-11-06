@@ -21,7 +21,7 @@ CREATE TABLE "chunks" (
 	"chunk_index" integer NOT NULL,
 	"page_number" integer,
 	"token_count" integer,
-	"embedding" vector(1536),
+	"embedding" vector(2048),
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

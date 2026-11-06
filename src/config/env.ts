@@ -17,6 +17,7 @@ const envSchema = z.object({
   R2_BUCKET_NAME: z.string().trim().min(1),
   GROQ_API_KEY: z.string().trim().min(1),
   GROQ_MODEL: z.string(), // take it out later
+  EMBEDDING_MODEL: z.string().trim().min(1),
   OPENROUTER_API_KEY: z.string().trim().min(1),
   REDIS_URL: z.url(),
   PROCESS_DOCUMENT_QUEUE: z.string().trim().min(1),

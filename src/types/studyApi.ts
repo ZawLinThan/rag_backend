@@ -1,4 +1,5 @@
-import { DocumentStatus } from "../db/schema.js";
+export type DocumentStatus =
+  "pending" | "queued" | "processing" | "ready" | "failed";
 
 /** Backend JSON contracts; maintained independently from frontend types.
  * Timestamps are serialized ISO strings, unlike database Date values. */

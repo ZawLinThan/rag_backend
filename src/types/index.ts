@@ -19,7 +19,7 @@ export type ChatRequest<T> = {
 /**
  * Supported AI provider identifiers.
  */
-export type Provider = "groq" | "openrouter"; // add here if more AI's are added
+export type Provider = "groq" | "openrouter" | "openrouter embedding"; // add here if more AI's are added
 
 export type GetPresignedUrlReq = {
   fileName: string;

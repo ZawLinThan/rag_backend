@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { protectRoute } from "../middleware/protectRoute.js";
 import {
+  answerQuestion,
   createNewChatSession,
   deleteChatSession,
   getAllChatSessions,
@@ -17,5 +18,6 @@ router.post("/sessions", protectRoute, createNewChatSession);
 router.get("/sessions", protectRoute, getAllChatSessions);
 router.get("/sessions/:id", protectRoute, getSingleChatSession);
 router.delete("/sessions/:id", protectRoute, deleteChatSession);
+router.post("/sessions/:id/messages", protectRoute, answerQuestion);
 
 export default router;
