@@ -357,14 +357,14 @@ export const answerQuestion = async (req: Request, res: Response) => {
 export const deleteChatSession = async (req: Request, res: Response) => {
   const userId = req.user?.id;
   if (!userId) {
-    res.status(401).json({error: "Unauthorized user"});
+    res.status(401).json({ error: "Unauthorized user" });
     return;
   }
 
   const result = z.uuid().safeParse(req.params.id);
 
   if (!result.success) {
-    res.status(400).json({error: "Invalid sesion id"});
+    res.status(400).json({ error: "Invalid sesion id" });
     return;
   }
 
@@ -374,20 +374,17 @@ export const deleteChatSession = async (req: Request, res: Response) => {
     const [deletedSession] = await db
       .delete(chatSessions)
       .where(
-        and(
-          eq(chatSessions.id, sessionId),
-          eq(chatSessions.userId, userId),
-        ),
+        and(eq(chatSessions.id, sessionId), eq(chatSessions.userId, userId)),
       )
-      .returning({id: chatSessions.id})
+      .returning({ id: chatSessions.id });
 
     if (!deletedSession) {
-      res.status(404).json({error: "Chat session not found"});
+      res.status(404).json({ error: "Chat session not found" });
       return;
     }
 
     res.status(204).send();
-  } catch (error){
-    res.status(500).json({error: "Failed to delete chat session"});
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete chat session" });
   }
 };
