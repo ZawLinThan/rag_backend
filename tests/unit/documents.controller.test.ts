@@ -10,7 +10,12 @@ jest.mock("../../src/config/r2.js", () => ({
 }));
 
 jest.mock("../../src/db/index.js", () => ({
-  db: { select: jest.fn(), update: jest.fn(), transaction: jest.fn() },
+  db: {
+    select: jest.fn(),
+    insert: jest.fn(),
+    update: jest.fn(),
+    transaction: jest.fn(),
+  },
 }));
 
 jest.mock("../../src/config/sentry.js", () => ({
@@ -31,6 +36,7 @@ import {
   getAllDocuments,
   getDocumentFile,
   getSingleDocument,
+  ingestPipeline,
 } from "../../src/controllers/documents.controller.js";
 import { s3 } from "../../src/config/r2.js";
 import { db } from "../../src/db/index.js";
@@ -50,6 +56,7 @@ const document = {
   r2Key: `${userId}/lecture-notes.pdf`,
   fileType: "pdf",
   fileSize: 512,
+  hasMathFormula: false,
   status: "ready" as const,
   errorMessage: null,
   courseId: null,
@@ -85,6 +92,40 @@ function request(id = documentId, authenticated = true) {
 beforeEach(() => {
   jest.clearAllMocks();
   send.mockResolvedValue({} as never);
+});
+
+it.each([true, false, undefined])(
+  "persists the formula choice %s on upload confirmation",
+  async (hasMathFormula) => {
+    const returning = jest.fn().mockResolvedValue([document]);
+    const values = jest.fn(() => ({ returning }));
+    jest.mocked(db.insert).mockReturnValue({ values } as never);
+    const res = response();
+    await ingestPipeline(
+      {
+        user: { id: userId },
+        body: { ...document, hasMathFormula },
+      } as unknown as Request,
+      res,
+    );
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({ hasMathFormula: hasMathFormula ?? false }),
+    );
+    expect(res.status).toHaveBeenCalledWith(202);
+  },
+);
+
+it("rejects a non-boolean formula choice before accessing storage", async () => {
+  const res = response();
+  await ingestPipeline(
+    {
+      user: { id: userId },
+      body: { ...document, hasMathFormula: "false" },
+    } as unknown as Request,
+    res,
+  );
+  expect(res.status).toHaveBeenCalledWith(400);
+  expect(send).not.toHaveBeenCalled();
 });
 
 it("lists only the authenticated user's documents", async () => {

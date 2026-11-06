@@ -2,6 +2,12 @@ import { EventEmitter } from "node:events";
 import { writeFile } from "node:fs/promises";
 import { afterEach, beforeEach, expect, it, jest } from "@jest/globals";
 import JSZip from "jszip";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { env } from "../../src/config/env.js";
+
+jest.mock("../../src/config/r2.js", () => ({
+  s3: { send: jest.fn() },
+}));
 
 jest.mock("../../src/db/index.js", () => ({
   db: { select: jest.fn(), update: jest.fn() },
@@ -19,13 +25,43 @@ jest.mock("node:child_process", () => ({
   spawn: jest.fn(),
 }));
 
-import { extractText } from "../../src/services/ingest.service.js";
+import {
+  chunkText,
+  downloadFromR2,
+  extractText,
+} from "../../src/services/ingest.service.js";
+import { s3 } from "../../src/config/r2.js";
 import { spawn } from "node:child_process";
 
 const spawnMock = jest.mocked(spawn);
+const sendMock = jest.mocked(s3.send);
 const originalMineruCommand = process.env.MINERU_COMMAND;
 const originalMineruTier = process.env.MINERU_TIER;
 const originalMineruTimeout = process.env.MINERU_TIMEOUT_MS;
+
+it("downloads the exact R2 key and preserves binary bytes", async () => {
+  const bytes = Uint8Array.from([0, 255, 128, 10]);
+  sendMock.mockResolvedValueOnce({
+    Body: { transformToByteArray: async () => bytes },
+  } as never);
+  await expect(downloadFromR2("user/notes with spaces.pdf")).resolves.toEqual(
+    Buffer.from(bytes),
+  );
+  const command = sendMock.mock.calls[0][0] as GetObjectCommand;
+  expect(command).toBeInstanceOf(GetObjectCommand);
+  expect(command.input).toEqual({
+    Bucket: env.R2_BUCKET_NAME,
+    Key: "user/notes with spaces.pdf",
+  });
+});
+
+it("rejects missing R2 bodies and propagates storage failures", async () => {
+  sendMock.mockResolvedValueOnce({} as never);
+  await expect(downloadFromR2("user/file")).rejects.toThrow("no body");
+  const error = new Error("NoSuchKey");
+  sendMock.mockRejectedValueOnce(error as never);
+  await expect(downloadFromR2("user/missing")).rejects.toBe(error);
+});
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -195,4 +231,61 @@ it("does not silently index an empty image-only or unsupported document", async 
   await expect(
     extractText(Buffer.from("content"), "application/epub+zip"),
   ).rejects.toThrow("Unsupported document type");
+});
+
+it("preserves PDF page metadata and skips empty pages", () => {
+  expect(
+    chunkText("--- Page 1 ---\nFirst page.\n\n--- Page 3 ---\nThird page."),
+  ).toEqual([
+    { content: "First page.", chunkIndex: 0, pageNumber: 1, tokenCount: 3 },
+    { content: "Third page.", chunkIndex: 1, pageNumber: 3, tokenCount: 3 },
+  ]);
+  expect(chunkText(" \n ")).toEqual([]);
+});
+
+it("splits long prose with overlap and keeps Markdown section boundaries", () => {
+  const sentences = Array.from(
+    { length: 90 },
+    (_, i) => `Sentence ${i} explains a topic in detail.`,
+  );
+  const chunks = chunkText(
+    `# Introduction\n${sentences.join(" ")}\n\n# Conclusion\nFinal thoughts.`,
+  );
+  expect(chunks.length).toBeGreaterThan(2);
+  expect(chunks[0].content).toMatch(/^# Introduction/);
+  expect(chunks.at(-1)?.content).toBe("# Conclusion\nFinal thoughts.");
+  expect(chunks.map((chunk) => chunk.chunkIndex)).toEqual(
+    chunks.map((_, i) => i),
+  );
+  expect(
+    chunks.every(
+      (chunk) => chunk.pageNumber === null && chunk.content.length <= 2000,
+    ),
+  ).toBe(true);
+  const overlap = chunks[1].content.split(" ").slice(0, 4).join(" ");
+  expect(chunks[0].content).toContain(overlap);
+  for (const sentence of sentences)
+    expect(chunks.some((chunk) => chunk.content.includes(sentence))).toBe(true);
+});
+
+it("keeps DOCX and display equations intact across chunk boundaries", () => {
+  const equations = [
+    `[[equation: ${"x + ".repeat(700)}y]]`,
+    `$$${"z + ".repeat(600)}w$$`,
+  ];
+  const chunks = chunkText(
+    `Explanation. ${equations[0]}\n\nMore context. ${equations[1]}\n\nFinal explanation.`,
+  );
+  for (const equation of equations) {
+    expect(chunks.some((chunk) => chunk.content.includes(equation))).toBe(true);
+  }
+  expect(chunks.at(-1)?.content).toContain("Final explanation.");
+});
+
+it("makes progress when a long equation follows an unbroken stretch of text", () => {
+  const equation = `$$${"z".repeat(2500)}$$`;
+  const chunks = chunkText(`${"a".repeat(1900)}${equation} end`);
+  expect(chunks.length).toBeLessThanOrEqual(4);
+  expect(chunks.some((chunk) => chunk.content.includes(equation))).toBe(true);
+  expect(chunks.at(-1)?.content).toContain("end");
 });

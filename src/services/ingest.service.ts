@@ -6,6 +6,9 @@ import type { Job } from "bullmq";
 import { XMLParser } from "fast-xml-parser";
 import JSZip from "jszip";
 import { extractText as extractPdfText, getDocumentProxy } from "unpdf";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { s3 } from "../config/r2.js";
+import { env } from "../config/env.js";
 import { db } from "../db/index.js";
 import { chunks as chunksTable, documents } from "../db/schema.js";
 import type { Document, DocumentStatus, NewChunk } from "../db/schema.js";
@@ -62,8 +65,14 @@ const EMBEDDING_DIMENSIONS = 2048;
 const INSERT_BATCH_SIZE = 100;
 
 // Download the document's bytes from R2.
-const downloadFromR2 = async (_r2Key: string): Promise<Buffer> => {
-  throw new Error("downloadFromR2 is not implemented");
+export const downloadFromR2 = async (r2Key: string): Promise<Buffer> => {
+  const object = await s3.send(
+    new GetObjectCommand({ Bucket: env.R2_BUCKET_NAME, Key: r2Key }),
+  );
+  if (!object.Body) {
+    throw new Error("R2 document response has no body");
+  }
+  return Buffer.from(await object.Body.transformToByteArray());
 };
 
 type SupportedFileType = "pdf" | "docx" | "txt";
@@ -414,9 +423,119 @@ export const extractText = async (
   }
 };
 
-// Split extracted text into chunks before database IDs are assigned.
-const chunkText = (_text: string): TextChunk[] => {
-  throw new Error("chunkText is not implemented");
+const CHUNK_CHARACTERS = 2000;
+const CHUNK_OVERLAP = 200;
+
+export const chunkText = (text: string): TextChunk[] => {
+  const result: TextChunk[] = [];
+  const normalized = normaliseText(text).trim();
+  if (!normalized) return result;
+
+  // Selectable PDFs contain these page markers. Other extractors do not
+  // provide reliable page numbers, so their chunks retain null metadata.
+  const marker = /^--- Page (\d+) ---[ \t]*$/gm;
+  const markers = [...normalized.matchAll(marker)];
+  const pages: { text: string; pageNumber: number | null }[] = [];
+  if (markers.length === 0) {
+    pages.push({ text: normalized, pageNumber: null });
+  } else {
+    const prefix = normalized.slice(0, markers[0].index).trim();
+    if (prefix) pages.push({ text: prefix, pageNumber: null });
+    markers.forEach((match, index) => {
+      pages.push({
+        text: normalized
+          .slice(match.index! + match[0].length, markers[index + 1]?.index)
+          .trim(),
+        pageNumber: Number(match[1]),
+      });
+    });
+  }
+
+  for (const page of pages) {
+    // Keep Markdown headings with their following content when possible.
+    const sections = page.text.split(/(?=^#{1,6}[ \t]+\S)/m);
+    for (const section of sections) {
+      const content = section.trim();
+
+      if (!content) {
+        continue;
+      }
+
+      // DOCX equations and MinerU display equations are indivisible, even if
+      // a single equation exceeds the normal chunk size.
+      const equations = [
+        ...content.matchAll(/\[\[equation:[\s\S]*?\]\]|\$\$[\s\S]*?\$\$/g),
+      ].map((match) => ({
+        start: match.index!,
+        end: match.index! + match[0].length,
+      }));
+      let start = 0;
+      while (start < content.length) {
+        let end = Math.min(start + CHUNK_CHARACTERS, content.length);
+        const enclosing = equations.find(
+          (equation) => equation.start < end && end < equation.end,
+        );
+        if (enclosing)
+          end = enclosing.start > start ? enclosing.start : enclosing.end;
+
+        if (end < content.length && end - start >= CHUNK_CHARACTERS / 2) {
+          const window = content.slice(start, end);
+          const minimum = Math.floor(window.length / 2);
+          const boundaries = [/\n\s*\n/g, /\n/g, /[.!?](?:\s+)/g, /\s+/g];
+          for (const boundary of boundaries) {
+            const candidates = [...window.matchAll(boundary)];
+            const candidate = candidates.at(-1);
+            if (!candidate) continue;
+            const position = start + candidate.index! + candidate[0].length;
+            if (
+              position - start >= minimum &&
+              !equations.some(
+                (equation) =>
+                  equation.start < position && position < equation.end,
+              )
+            ) {
+              end = position;
+              break;
+            }
+          }
+        }
+
+        // Avoid separating UTF-16 surrogate pairs at a hard boundary.
+        if (
+          end < content.length &&
+          /[\uD800-\uDBFF]/.test(content[end - 1]) &&
+          /[\uDC00-\uDFFF]/.test(content[end])
+        )
+          end++;
+        const chunk = content.slice(start, end).trim();
+        if (chunk)
+          result.push({
+            content: chunk,
+            chunkIndex: result.length,
+            pageNumber: page.pageNumber,
+            tokenCount: Math.ceil(chunk.length / 4),
+          });
+        if (end >= content.length) break;
+
+        let next = end - start <= CHUNK_OVERLAP ? end : end - CHUNK_OVERLAP;
+        const overlapEquation = equations.find(
+          (equation) => equation.start < next && next < equation.end,
+        );
+        if (overlapEquation)
+          next =
+            overlapEquation.start > start
+              ? overlapEquation.start
+              : overlapEquation.end;
+        // Begin overlap at a word boundary where possible.
+        if (!overlapEquation) {
+          const space = content.slice(next, end).search(/\s/);
+          if (space >= 0) next += space + 1;
+        }
+        start = Math.max(start + 1, next);
+      }
+    }
+  }
+  return result;
 };
 
 // Associate each chunk with its embedding vector.
@@ -427,7 +546,7 @@ const embedChunks = async (
 
   for (const chunk of textChunks) {
     const embedding = await scheduleProviderRequest(
-      "openrouter",
+      "openrouter embedding",
       Math.ceil(chunk.content.length / 4),
       async () => {
         await beforeProviderCall();
@@ -552,7 +671,7 @@ export const processDocument = async ({
         return downloadFromR2(document.r2Key);
       },
     );
-
+    console.log("Downloaded from R2");
     await job.updateProgress(25);
 
     // extract text
@@ -567,12 +686,12 @@ export const processDocument = async ({
         });
       },
     );
-
+    console.log("Text extracted");
     await job.updateProgress(55);
 
     // chunking
     const chunks: TextChunk[] = chunkText(text);
-
+    console.log("Chunked text");
     await job.updateProgress(55);
 
     // embedding
@@ -585,7 +704,7 @@ export const processDocument = async ({
         return embedChunks(chunks);
       },
     );
-
+    console.log("Embedded chunks");
     await job.updateProgress(85);
 
     // store chunks
@@ -598,7 +717,6 @@ export const processDocument = async ({
         return storeChunks(document.id, document.userId, embeddedChunks);
       },
     );
-
     await updateDocumentStatus(documentId, "ready");
 
     await job.updateProgress(100);
