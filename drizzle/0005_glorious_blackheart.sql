@@ -1,0 +1,1 @@
+ALTER TABLE "documents" ALTER COLUMN "file_type" SET DATA TYPE varchar(200);

@@ -1,5 +1,5 @@
 {
-  "id": "71b5ebaa-c8e3-48d8-be89-f10e28b5ae96",
+  "id": "7dc1db2a-9d41-4772-95f4-e57db1330cd3",
   "prevId": "71896192-c1e8-4273-a753-26687b6e0eae",
   "version": "7",
   "dialect": "postgresql",
@@ -342,7 +342,7 @@
         },
         "file_type": {
           "name": "file_type",
-          "type": "varchar(50)",
+          "type": "varchar(200)",
           "primaryKey": false,
           "notNull": true
         },
@@ -351,13 +351,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
-        },
-        "has_math_formula": {
-          "name": "has_math_formula",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "status": {
           "name": "status",

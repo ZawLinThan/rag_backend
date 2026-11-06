@@ -7,11 +7,15 @@ import { XMLParser } from "fast-xml-parser";
 import JSZip from "jszip";
 import { extractText as extractPdfText, getDocumentProxy } from "unpdf";
 import { db } from "../db/index.js";
-import { documents } from "../db/schema.js";
+import { chunks as chunksTable, documents } from "../db/schema.js";
 import type { Document, DocumentStatus, NewChunk } from "../db/schema.js";
 import type { DocumentJob } from "../queue/document.queue.js";
 import { eq } from "drizzle-orm";
+import { embedText } from "../config/openRouterAI.js";
 import { Sentry } from "../config/sentry.js";
+import { PermanentError } from "../lib/errors.js";
+import { beforeProviderCall } from "../lib/providerCalls.js";
+import { scheduleProviderRequest } from "../lib/providerRateLimit.js";
 
 type TextChunk = Pick<
   NewChunk,
@@ -51,6 +55,11 @@ const docxParser = new XMLParser({
     maxExpandedLength: 100_000,
   },
 });
+/** Vector width the chunks table expects. */
+const EMBEDDING_DIMENSIONS = 2048;
+
+/** Rows per insert statement. */
+const INSERT_BATCH_SIZE = 100;
 
 // Download the document's bytes from R2.
 const downloadFromR2 = async (_r2Key: string): Promise<Buffer> => {
@@ -412,18 +421,65 @@ const chunkText = (_text: string): TextChunk[] => {
 
 // Associate each chunk with its embedding vector.
 const embedChunks = async (
-  _chunks: readonly TextChunk[],
+  textChunks: readonly TextChunk[],
 ): Promise<EmbeddedChunk[]> => {
-  throw new Error("embedChunks is not implemented");
+  const embedded: EmbeddedChunk[] = [];
+
+  for (const chunk of textChunks) {
+    const embedding = await scheduleProviderRequest(
+      "openrouter",
+      Math.ceil(chunk.content.length / 4),
+      async () => {
+        await beforeProviderCall();
+        return embedText(chunk.content);
+      },
+    );
+
+    if (
+      embedding.length !== EMBEDDING_DIMENSIONS ||
+      !embedding.every(Number.isFinite) ||
+      !embedding.some((value) => value !== 0)
+    ) {
+      throw new PermanentError(
+        `Embedding must be a finite, nonzero ${EMBEDDING_DIMENSIONS}-dimension vector.`,
+      );
+    }
+    embedded.push({ ...chunk, embedding });
+  }
+
+  return embedded;
 };
 
 // Store embedded chunks with their document and user ownership.
 const storeChunks = async (
-  _documentId: Document["id"],
-  _userId: Document["userId"],
-  _chunks: readonly EmbeddedChunk[],
+  documentId: Document["id"],
+  userId: Document["userId"],
+  embeddedChunks: readonly EmbeddedChunk[],
 ): Promise<void> => {
-  throw new Error("storeChunks is not implemented");
+  await db.transaction(async (tx) => {
+    // Clear rows from an earlier attempt; (documentID, chunkIndex) is unique.
+    await tx.delete(chunksTable).where(eq(chunksTable.documentId, documentId));
+
+    for (
+      let start = 0;
+      start < embeddedChunks.length;
+      start += INSERT_BATCH_SIZE
+    ) {
+      const rows: NewChunk[] = embeddedChunks
+        .slice(start, start + INSERT_BATCH_SIZE)
+        .map((chunk) => ({
+          documentId,
+          userId,
+          content: chunk.content,
+          chunkIndex: chunk.chunkIndex,
+          pageNumber: chunk.pageNumber,
+          tokenCount: chunk.tokenCount,
+          embedding: chunk.embedding,
+        }));
+
+      await tx.insert(chunksTable).values(rows);
+    }
+  });
 };
 
 /**

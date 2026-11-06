@@ -58,7 +58,7 @@ export const documents = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     originalName: varchar("original_name", { length: 255 }).notNull(),
     r2Key: varchar("r2_key", { length: 500 }).notNull(),
-    fileType: varchar("file_type", { length: 50 }).notNull(), // pdf | docx | txt
+    fileType: varchar("file_type", { length: 250 }).notNull(), // pdf | docx | txt
     fileSize: integer("file_size").notNull(),
     // TODO(frontend): ask this at upload confirmation and persist the answer.
     // Math PDFs use local MinerU; all other documents keep normal extraction.
@@ -94,7 +94,7 @@ export const chunks = pgTable(
     chunkIndex: integer("chunk_index").notNull(),
     pageNumber: integer("page_number"),
     tokenCount: integer("token_count"),
-    embedding: vector("embedding", { dimensions: 1536 } as any),
+    embedding: vector("embedding", { dimensions: 2048 } as any),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     // fk: userId -> auth.users(id), handled by supabase
   },
