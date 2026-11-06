@@ -57,6 +57,13 @@
       "when": 1793394162701,
       "tag": "0007_goofy_rictor",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793992312849,
+      "tag": "0008_fancy_moonstone",
+      "breakpoints": true
     }
   ]
 }

@@ -82,7 +82,7 @@ export const getPresignedUrl = async (req: Request, res: Response) => {
 /**
  * POST /api/documents/confirm
  * Verify the uploaded R2 key belongs to the user and exists; validate notebook/course ownership, create metadata and queue ingestion (extract, chunk, embed).
- * ConfirmFileUploadReq: { name, originalName, r2Key, fileType, fileSize, courseId, notebookId }.
+ * ConfirmFileUploadReq: { name, originalName, r2Key, fileType, fileSize, hasMathFormula, courseId, notebookId }.
  * Response: 202 { documentId, status: "queued" }; GET /api/documents/:id polling reports later processing status.
  * Errors: { error: string } with 400 validation, 401 authentication,
  * 404 missing/ownership, 409 conflict, or 500 unexpected failure.
@@ -106,9 +106,14 @@ export const ingestPipeline = async (req: Request, res: Response) => {
     r2Key,
     fileType,
     fileSize,
+    hasMathFormula,
     courseId,
     notebookId,
   } = req.body as ConfirmFileUploadReq;
+
+  if (hasMathFormula !== undefined && typeof hasMathFormula !== "boolean") {
+    return res.status(400).json({ error: "hasMathFormula must be a boolean" });
+  }
 
   try {
     // Presigned uploads are namespaced as `<userId>/...`. Do not allow a
@@ -135,16 +140,13 @@ export const ingestPipeline = async (req: Request, res: Response) => {
         r2Key,
         fileType,
         fileSize,
+        hasMathFormula: hasMathFormula ?? false,
         courseId,
         notebookId,
         status: "pending",
       })
       .returning();
-    // testing purpose
-    return res.status(202).json({
-      documentId: document.id,
-      status: "queued",
-    });
+
     // process document
     try {
       await documentQueue.add(
