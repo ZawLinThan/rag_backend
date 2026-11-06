@@ -33,6 +33,9 @@ export type ConfirmFileUploadReq = {
   r2Key: string;
   fileType: string;
   fileSize: number;
+  // TODO(frontend): send this from the upload confirmation question.
+  // The confirm controller must persist it on documents.hasMathFormula.
+  hasMathFormula?: boolean;
   courseId: string;
   notebookId: string;
 };

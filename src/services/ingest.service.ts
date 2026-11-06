@@ -1,4 +1,11 @@
+import { spawn } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Job } from "bullmq";
+import { XMLParser } from "fast-xml-parser";
+import JSZip from "jszip";
+import { extractText as extractPdfText, getDocumentProxy } from "unpdf";
 import { db } from "../db/index.js";
 import { chunks as chunksTable, documents } from "../db/schema.js";
 import type { Document, DocumentStatus, NewChunk } from "../db/schema.js";
@@ -19,6 +26,35 @@ type EmbeddedChunk = TextChunk & {
   embedding: NonNullable<NewChunk["embedding"]>;
 };
 
+const MAX_PDF_PAGES = 200;
+const MAX_PDF_IMAGE_PIXELS = 16_777_216;
+const MAX_EXTRACTED_CHARACTERS = 2_000_000;
+const MAX_DOCX_XML_CHARACTERS = 4_000_000;
+const DEFAULT_MINERU_TIMEOUT_MS = 30 * 60 * 1_000;
+const MAX_MINERU_LOG_CHARACTERS = 10_000;
+
+type XmlNode = Record<string, unknown>;
+type XmlNodes = XmlNode[];
+type MineruTier = "basic" | "standard" | "advanced";
+
+type ExtractTextOptions = {
+  hasMathFormula?: boolean;
+};
+
+// DOCX files are ZIP archives. The body and Office Math markup live in
+// word/document.xml; preserveOrder keeps text and equations in reading order.
+const docxParser = new XMLParser({
+  preserveOrder: true,
+  ignoreAttributes: false,
+  trimValues: false,
+  parseTagValue: false,
+  maxNestedTags: 128,
+  processEntities: {
+    maxEntitySize: 10_000,
+    maxTotalExpansions: 1_000,
+    maxExpandedLength: 100_000,
+  },
+});
 /** Vector width the chunks table expects. */
 const EMBEDDING_DIMENSIONS = 2048;
 
@@ -30,12 +66,352 @@ const downloadFromR2 = async (_r2Key: string): Promise<Buffer> => {
   throw new Error("downloadFromR2 is not implemented");
 };
 
-// Extract text using the document's file type (pdf, docx, or txt).
-const extractText = async (
-  _file: Buffer,
-  _fileType: Document["fileType"],
+type SupportedFileType = "pdf" | "docx" | "txt";
+
+const normaliseFileType = (fileType: string): SupportedFileType => {
+  switch (fileType.trim().toLowerCase()) {
+    case "pdf":
+    case ".pdf":
+    case "application/pdf":
+      return "pdf";
+    case "docx":
+    case ".docx":
+    case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+      return "docx";
+    case "txt":
+    case ".txt":
+    case "text/plain":
+      return "txt";
+    default:
+      throw new Error(`Unsupported document type: ${fileType}`);
+  }
+};
+
+const normaliseText = (text: string): string =>
+  text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+
+const requireExtractedText = (text: string, source: string): string => {
+  const normalised = normaliseText(text).trim();
+
+  if (!normalised) {
+    throw new Error(
+      `${source} contains no extractable text; image-only documents require OCR, which is not enabled.`,
+    );
+  }
+
+  if (normalised.length > MAX_EXTRACTED_CHARACTERS) {
+    throw new Error(
+      `${source} extracted text exceeds the ${MAX_EXTRACTED_CHARACTERS.toLocaleString()} character limit.`,
+    );
+  }
+
+  return normalised;
+};
+
+const asXmlNodes = (value: unknown): XmlNodes =>
+  Array.isArray(value) ? (value as XmlNodes) : [];
+
+const childrenFor = (node: XmlNode, tagName: string): XmlNodes =>
+  asXmlNodes(node[tagName]);
+
+const textFromXmlNodes = (nodes: XmlNodes): string =>
+  nodes
+    .map((node) => {
+      if (typeof node["#text"] === "string") {
+        return node["#text"];
+      }
+
+      return Object.entries(node)
+        .filter(([tagName]) => tagName !== ":@")
+        .map(([, children]) => textFromXmlNodes(asXmlNodes(children)))
+        .join("");
+    })
+    .join("");
+
+// This is intentionally a small, readable representation of the Office Math
+// constructs most common in notes. It does not claim to be LaTeX or MathML.
+const ommlToText = (nodes: XmlNodes): string =>
+  nodes
+    .map((node) => {
+      const tagName = Object.keys(node).find(
+        (key) => key !== ":@" && key !== "#text",
+      );
+
+      if (!tagName) {
+        return typeof node["#text"] === "string" ? node["#text"] : "";
+      }
+
+      const children = childrenFor(node, tagName);
+      const part = (name: string): string =>
+        children
+          .filter((child) => child[name])
+          .map((child) => ommlToText(childrenFor(child, name)))
+          .join("");
+
+      switch (tagName) {
+        case "m:f": {
+          const numerator = part("m:num");
+          const denominator = part("m:den");
+          return numerator || denominator
+            ? `(${numerator}) / (${denominator})`
+            : "";
+        }
+        case "m:sSup": {
+          const base = part("m:e");
+          const superscript = part("m:sup");
+          return superscript ? `${base}^(${superscript})` : base;
+        }
+        case "m:sSub": {
+          const base = part("m:e");
+          const subscript = part("m:sub");
+          return subscript ? `${base}_(${subscript})` : base;
+        }
+        case "m:sSubSup": {
+          const base = part("m:e");
+          const subscript = part("m:sub");
+          const superscript = part("m:sup");
+          return `${base}${subscript ? `_(${subscript})` : ""}${
+            superscript ? `^(${superscript})` : ""
+          }`;
+        }
+        case "m:rad": {
+          const degree = part("m:deg");
+          const expression = part("m:e");
+          return degree
+            ? `root(${degree}, ${expression})`
+            : `sqrt(${expression})`;
+        }
+        case "m:oMath":
+          return `[[equation: ${ommlToText(children)}]]`;
+        default:
+          return ommlToText(children);
+      }
+    })
+    .join("");
+
+const wordprocessingMlToText = (nodes: XmlNodes): string =>
+  nodes
+    .map((node) => {
+      const tagName = Object.keys(node).find(
+        (key) => key !== ":@" && key !== "#text",
+      );
+
+      if (!tagName) {
+        return "";
+      }
+
+      const children = childrenFor(node, tagName);
+
+      switch (tagName) {
+        case "w:t":
+          return textFromXmlNodes(children);
+        case "w:tab":
+          return "\t";
+        case "w:br":
+        case "w:cr":
+          return "\n";
+        case "w:p":
+          return `${wordprocessingMlToText(children).trim()}\n\n`;
+        case "m:oMath":
+          return ommlToText([{ [tagName]: children }]);
+        case "m:oMathPara":
+          return `${ommlToText(children)}\n\n`;
+        default:
+          return wordprocessingMlToText(children);
+      }
+    })
+    .join("");
+
+const getMineruTier = (): MineruTier => {
+  const configuredTier = process.env.MINERU_TIER?.trim().toLowerCase();
+
+  if (!configuredTier) {
+    return "advanced";
+  }
+
+  if (
+    configuredTier === "basic" ||
+    configuredTier === "standard" ||
+    configuredTier === "advanced"
+  ) {
+    return configuredTier;
+  }
+
+  throw new Error("MINERU_TIER must be one of: basic, standard, or advanced.");
+};
+
+const getMineruTimeoutMs = (): number => {
+  const configuredTimeout = process.env.MINERU_TIMEOUT_MS;
+
+  if (!configuredTimeout) {
+    return DEFAULT_MINERU_TIMEOUT_MS;
+  }
+
+  const timeoutMs = Number(configuredTimeout);
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new Error("MINERU_TIMEOUT_MS must be a positive integer.");
+  }
+
+  return timeoutMs;
+};
+
+const appendMineruLog = (current: string, data: Buffer | string): string =>
+  `${current}${data.toString()}`.slice(-MAX_MINERU_LOG_CHARACTERS);
+
+const runMineru = async (
+  inputPath: string,
+  outputPath: string,
+): Promise<void> => {
+  const command = process.env.MINERU_COMMAND?.trim() || "mineru-kit";
+  const tier = getMineruTier();
+  const timeoutMs = getMineruTimeoutMs();
+  const args = ["parse", inputPath, "-o", outputPath, "--tier", tier];
+
+  await new Promise<void>((resolve, reject) => {
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+    const child = spawn(command, args, {
+      shell: false,
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    });
+
+    const finish = (error?: Error): void => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timeout);
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    };
+
+    const timeout = setTimeout(() => {
+      child.kill();
+      finish(
+        new Error(
+          `MinerU did not finish within ${Math.round(timeoutMs / 60_000)} minutes.`,
+        ),
+      );
+    }, timeoutMs);
+
+    child.stdout?.on("data", (data: Buffer) => {
+      stdout = appendMineruLog(stdout, data);
+    });
+    child.stderr?.on("data", (data: Buffer) => {
+      stderr = appendMineruLog(stderr, data);
+    });
+    child.on("error", (error) => {
+      finish(
+        new Error(
+          `Could not start MinerU command "${command}". Install MinerU or set MINERU_COMMAND to the local mineru-kit executable.`,
+          { cause: error },
+        ),
+      );
+    });
+    child.on("close", (code, signal) => {
+      if (code === 0) {
+        finish();
+        return;
+      }
+
+      const diagnostics = (stderr || stdout).trim();
+      finish(
+        new Error(
+          `MinerU failed${signal ? ` (${signal})` : ` with exit code ${code}`}${
+            diagnostics ? `: ${diagnostics}` : ""
+          }`,
+        ),
+      );
+    });
+  });
+};
+
+const extractPdfWithMineru = async (file: Buffer): Promise<string> => {
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), "rag-mineru-"));
+  const inputPath = join(temporaryDirectory, "document.pdf");
+  const outputPath = join(temporaryDirectory, "document.md");
+
+  try {
+    await writeFile(inputPath, file);
+    await runMineru(inputPath, outputPath);
+    return requireExtractedText(
+      await readFile(outputPath, "utf8"),
+      "MinerU PDF",
+    );
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+};
+
+const extractPdf = async (file: Buffer): Promise<string> => {
+  const pdf = await getDocumentProxy(new Uint8Array(file), {
+    maxImageSize: MAX_PDF_IMAGE_PIXELS,
+  });
+
+  try {
+    if (pdf.numPages > MAX_PDF_PAGES) {
+      throw new Error(`PDF exceeds the ${MAX_PDF_PAGES} page limit.`);
+    }
+
+    const { text } = await extractPdfText(pdf, { mergePages: false });
+    const pages = text
+      .map((page, index) => {
+        const pageText = normaliseText(page).trim();
+        return pageText ? `--- Page ${index + 1} ---\n${pageText}` : "";
+      })
+      .filter(Boolean);
+
+    return requireExtractedText(pages.join("\n\n"), "PDF");
+  } finally {
+    await pdf.loadingTask.destroy();
+  }
+};
+
+const extractDocx = async (file: Buffer): Promise<string> => {
+  const archive = await JSZip.loadAsync(file, { checkCRC32: true });
+  const documentXml = archive.file("word/document.xml");
+
+  if (!documentXml) {
+    throw new Error("DOCX is missing word/document.xml.");
+  }
+
+  const xml = await documentXml.async("string");
+  if (xml.length > MAX_DOCX_XML_CHARACTERS) {
+    throw new Error(
+      `DOCX XML exceeds the ${MAX_DOCX_XML_CHARACTERS.toLocaleString()} character limit.`,
+    );
+  }
+
+  return requireExtractedText(
+    wordprocessingMlToText(asXmlNodes(docxParser.parse(xml))),
+    "DOCX",
+  );
+};
+
+/**
+ * TODO(frontend): add a required \"contains mathematical formulas\" choice to
+ * upload confirmation. Persist it as documents.hasMathFormula; false keeps the
+ * normal text-only path, while true uses local MinerU and its LaTeX Markdown.
+ */
+export const extractText = async (
+  file: Buffer,
+  fileType: Document["fileType"],
+  { hasMathFormula = false }: ExtractTextOptions = {},
 ): Promise<string> => {
-  throw new Error("extractText is not implemented");
+  switch (normaliseFileType(fileType)) {
+    case "pdf":
+      return hasMathFormula ? extractPdfWithMineru(file) : extractPdf(file);
+    case "docx":
+      return extractDocx(file);
+    case "txt":
+      return requireExtractedText(file.toString("utf8"), "Text file");
+  }
 };
 
 // Split extracted text into chunks before database IDs are assigned.
@@ -186,7 +562,9 @@ export const processDocument = async ({
         op: "document.extract",
       },
       async () => {
-        return extractText(file, document.fileType);
+        return extractText(file, document.fileType, {
+          hasMathFormula: document.hasMathFormula,
+        });
       },
     );
 

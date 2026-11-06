@@ -1,0 +1,1 @@
+ALTER TABLE "documents" ADD COLUMN "has_math_formula" boolean DEFAULT false NOT NULL;
