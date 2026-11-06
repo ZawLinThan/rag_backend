@@ -11,6 +11,10 @@ jest.mock("../../src/config/sentry.js", () => ({
   Sentry: { captureException: jest.fn(), startSpan: jest.fn() },
 }));
 
+jest.mock("../../src/config/openRouterAI.js", () => ({
+  embedText: jest.fn(),
+}));
+
 jest.mock("node:child_process", () => ({
   spawn: jest.fn(),
 }));

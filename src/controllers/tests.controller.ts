@@ -33,7 +33,8 @@ const modelQuestionSchema = z
       context.addIssue({
         code: "custom",
         path: ["options"],
-        message: "Questions must be constructed response or have exactly four options.",
+        message:
+          "Questions must be constructed response or have exactly four options.",
       });
       return;
     }
@@ -84,7 +85,8 @@ const generatedTestSchema = z
       context.addIssue({
         code: "custom",
         path: ["questions"],
-        message: "A test needs six multiple-choice and four constructed-response questions.",
+        message:
+          "A test needs six multiple-choice and four constructed-response questions.",
       });
     }
   });
@@ -170,7 +172,9 @@ export const generateTest = async (
   const isReferenceMode = body.mode === "reference";
   const isNotebookMode = body.mode === "notebook";
   const referenceFileId =
-    typeof body.referenceFileId === "string" ? body.referenceFileId.trim() : null;
+    typeof body.referenceFileId === "string"
+      ? body.referenceFileId.trim()
+      : null;
   const referenceUrl =
     typeof body.referenceUrl === "string" ? body.referenceUrl.trim() : null;
 
@@ -225,7 +229,9 @@ export const generateTest = async (
       ? studyDocuments.filter((document) => document.id !== referenceFileId)
       : studyDocuments;
     if (!readyStudyDocuments.length) {
-      res.status(409).json({ error: "No ready study documents in this notebook" });
+      res
+        .status(409)
+        .json({ error: "No ready study documents in this notebook" });
       return;
     }
 
@@ -264,9 +270,10 @@ export const generateTest = async (
       .orderBy(asc(chunks.documentId), asc(chunks.chunkIndex));
 
     const documentNames = new Map(
-      [...readyStudyDocuments, ...(referenceDocument ? [referenceDocument] : [])].map(
-        (document) => [document.id, document.name],
-      ),
+      [
+        ...readyStudyDocuments,
+        ...(referenceDocument ? [referenceDocument] : []),
+      ].map((document) => [document.id, document.name]),
     );
     const namedChunks: SourceChunk[] = sourceChunks.map((chunk) => ({
       ...chunk,
@@ -280,7 +287,9 @@ export const generateTest = async (
       MAX_STUDY_CONTEXT_CHARACTERS,
     );
     if (!studySource) {
-      res.status(409).json({ error: "Ready study documents have no extracted notes" });
+      res
+        .status(409)
+        .json({ error: "Ready study documents have no extracted notes" });
       return;
     }
 
@@ -293,7 +302,9 @@ export const generateTest = async (
         )
       : null;
     if (referenceDocument && !referenceSource) {
-      res.status(409).json({ error: "Reference document has no extracted notes" });
+      res
+        .status(409)
+        .json({ error: "Reference document has no extracted notes" });
       return;
     }
 

@@ -42,10 +42,14 @@ const savedTest = {
 };
 
 const generatedTest = {
-  instructions: "Answer every question and show concise reasoning for constructed responses.",
+  instructions:
+    "Answer every question and show concise reasoning for constructed responses.",
   questions: Array.from({ length: 10 }, (_, index) => ({
     prompt: `Question ${index + 1}: explain the relevant discrete mathematics idea.`,
-    answer: index < 6 ? `Correct answer ${index + 1}` : "A concise supported explanation.",
+    answer:
+      index < 6
+        ? `Correct answer ${index + 1}`
+        : "A concise supported explanation.",
     options:
       index < 6
         ? [
@@ -122,7 +126,8 @@ const mockNotebookSource = () => {
         {
           documentId: studyDocumentId,
           chunkIndex: 0,
-          content: "Only study source: a bijection is both injective and surjective.",
+          content:
+            "Only study source: a bijection is both injective and surjective.",
         },
       ]) as never,
     );
@@ -214,14 +219,18 @@ it("generates a balanced grounded test and atomically persists metadata and cont
   expect(persistedContent.instructions).toBe(generatedTest.instructions);
   expect(persistedContent.questions).toHaveLength(10);
   expect(
-    persistedContent.questions.filter((question) => question.options.length === 4),
+    persistedContent.questions.filter(
+      (question) => question.options.length === 4,
+    ),
   ).toHaveLength(6);
   expect(
-    persistedContent.questions.filter((question) => question.options.length === 0),
+    persistedContent.questions.filter(
+      (question) => question.options.length === 0,
+    ),
   ).toHaveLength(4);
-  expect(new Set(persistedContent.questions.map((question) => question.id)).size).toBe(
-    10,
-  );
+  expect(
+    new Set(persistedContent.questions.map((question) => question.id)).size,
+  ).toBe(10);
   expect(res.status).toHaveBeenCalledWith(201);
   expect(res.json).toHaveBeenCalledWith({
     ...savedTest,
@@ -248,7 +257,8 @@ it("uses an owned sample test for style only, never as factual study material", 
         {
           documentId: referenceDocumentId,
           chunkIndex: 0,
-          content: "Example format source: Section A has short answer questions.",
+          content:
+            "Example format source: Section A has short answer questions.",
         },
       ]) as never,
     );
@@ -271,7 +281,9 @@ it("uses an owned sample test for style only, never as factual study material", 
   };
   expect(modelInput.studyNotes).toContain("Only study source");
   expect(modelInput.studyNotes).not.toContain("Example format source");
-  expect(modelInput.referenceTestForStyleOnly).toContain("Example format source");
+  expect(modelInput.referenceTestForStyleOnly).toContain(
+    "Example format source",
+  );
   expect(res.status).toHaveBeenCalledWith(201);
 });
 

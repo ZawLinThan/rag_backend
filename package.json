@@ -14,7 +14,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "commit": "npm run format && jest && tsc --noEmit && tsc && eslint .",
+    "commit": "npm run format && npm run test && tsc --noEmit && tsc && eslint .",
     "export:contracts": "node scripts/export-contracts.mjs"
   },
   "keywords": [],
@@ -36,7 +36,7 @@
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
-    "fast-xml-parser": "^5.11.2",
+    "fast-xml-parser": "^5.12.0",
     "groq-sdk": "^1.6.0",
     "ioredis": "^6.0.0",
     "jszip": "^3.10.2",
