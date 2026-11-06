@@ -23,6 +23,7 @@ jobs:
       R2_BUCKET_NAME: dummy-bucket
       GROQ_API_KEY: dummy-groq-api-key
       GROQ_MODEL: dummy-groq-model
+      EMBEDDING_MODEL: dummy-embedding-model
       OPENROUTER_API_KEY: dummy-openrouter-api-key
       REDIS_URL: redis://localhost:6379
       PROCESS_DOCUMENT_QUEUE: document-processing-test
@@ -35,7 +36,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
