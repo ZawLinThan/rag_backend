@@ -403,11 +403,6 @@ const extractDocx = async (file: Buffer): Promise<string> => {
   );
 };
 
-/**
- * TODO(frontend): add a required \"contains mathematical formulas\" choice to
- * upload confirmation. Persist it as documents.hasMathFormula; false keeps the
- * normal text-only path, while true uses local MinerU and its LaTeX Markdown.
- */
 export const extractText = async (
   file: Buffer,
   fileType: Document["fileType"],
@@ -436,11 +431,16 @@ export const chunkText = (text: string): TextChunk[] => {
   const marker = /^--- Page (\d+) ---[ \t]*$/gm;
   const markers = [...normalized.matchAll(marker)];
   const pages: { text: string; pageNumber: number | null }[] = [];
+
   if (markers.length === 0) {
     pages.push({ text: normalized, pageNumber: null });
   } else {
     const prefix = normalized.slice(0, markers[0].index).trim();
-    if (prefix) pages.push({ text: prefix, pageNumber: null });
+
+    if (prefix) {
+      pages.push({ text: prefix, pageNumber: null });
+    }
+
     markers.forEach((match, index) => {
       pages.push({
         text: normalized
@@ -461,14 +461,13 @@ export const chunkText = (text: string): TextChunk[] => {
         continue;
       }
 
-      // DOCX equations and MinerU display equations are indivisible, even if
-      // a single equation exceeds the normal chunk size.
       const equations = [
         ...content.matchAll(/\[\[equation:[\s\S]*?\]\]|\$\$[\s\S]*?\$\$/g),
       ].map((match) => ({
         start: match.index!,
         end: match.index! + match[0].length,
       }));
+
       let start = 0;
       while (start < content.length) {
         let end = Math.min(start + CHUNK_CHARACTERS, content.length);
@@ -482,11 +481,17 @@ export const chunkText = (text: string): TextChunk[] => {
           const window = content.slice(start, end);
           const minimum = Math.floor(window.length / 2);
           const boundaries = [/\n\s*\n/g, /\n/g, /[.!?](?:\s+)/g, /\s+/g];
+
           for (const boundary of boundaries) {
             const candidates = [...window.matchAll(boundary)];
             const candidate = candidates.at(-1);
-            if (!candidate) continue;
+
+            if (!candidate) {
+              continue;
+            }
+
             const position = start + candidate.index! + candidate[0].length;
+
             if (
               position - start >= minimum &&
               !equations.some(
@@ -505,27 +510,35 @@ export const chunkText = (text: string): TextChunk[] => {
           end < content.length &&
           /[\uD800-\uDBFF]/.test(content[end - 1]) &&
           /[\uDC00-\uDFFF]/.test(content[end])
-        )
+        ) {
           end++;
+        }
+
         const chunk = content.slice(start, end).trim();
-        if (chunk)
+        if (chunk) {
           result.push({
             content: chunk,
             chunkIndex: result.length,
             pageNumber: page.pageNumber,
             tokenCount: Math.ceil(chunk.length / 4),
           });
-        if (end >= content.length) break;
+        }
+
+        if (end >= content.length) {
+          break;
+        }
 
         let next = end - start <= CHUNK_OVERLAP ? end : end - CHUNK_OVERLAP;
         const overlapEquation = equations.find(
           (equation) => equation.start < next && next < equation.end,
         );
+
         if (overlapEquation)
           next =
             overlapEquation.start > start
               ? overlapEquation.start
               : overlapEquation.end;
+
         // Begin overlap at a word boundary where possible.
         if (!overlapEquation) {
           const space = content.slice(next, end).search(/\s/);
